@@ -1,2 +1,5 @@
 # Engineering council working files (kept locally, not versioned)
 .council/
+
+# graphify knowledge-graph output (generated)
+graphify-out/
