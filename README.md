@@ -6,11 +6,13 @@
 ![Status](https://img.shields.io/badge/Status-Hackathon%202026-green?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
-**Transform complex contracts into actionable obligation graphs, dependency maps, and risk intelligence.**
+**Transform complex contracts into actionable obligation graphs, dependency maps, and explainable risk signals.**
 
-[🚀 Live Demo](#-live-demo) • [📖 Documentation](#-documentation) • [🏗️ Architecture](#-architecture) • [⚡ Quick Start](#-quick-start)
+[🚀 Live Demo](#-live-demo) • [📖 Documentation](#-documentation) • [🏗️ Architecture](#%EF%B8%8F-architecture) • [⚡ Quick Start](#-quick-start)
 
 </div>
+
+> ⚖️ **Conan is a review and tracking aid, not legal advice.** It never judges enforceability or decides which conflicting clause prevails, and every extracted item needs human verification.
 
 ---
 
@@ -19,7 +21,7 @@
 Contracts are complex. Obligations are scattered across clauses, conditions, dates, and interdependencies. Teams struggle to maintain an actionable view of:
 
 - ❌ What must happen
-- ❌ When it must happen  
+- ❌ When it must happen
 - ❌ Who is responsible
 - ❌ What depends on what
 - ❌ What the consequences are if something is missed
@@ -35,19 +37,21 @@ Conan converts contractual complexity into **traceable, actionable intelligence*
 ```
 PDF Contract
     ↓
-Document Understanding
+Page-indexed text (hidden text filtered out)
     ↓
-Clause Detection
+Clause segmentation
     ↓
-Obligation Extraction
+Obligation extraction (Gemini, pass 1)
     ↓
-Dependency Graph
+Evidence verification → page derived from the quote's position in the PDF text
     ↓
-Risk Analysis
+Date resolution (only from contract text or dates you supply)
     ↓
-Action Timeline
+Dependency graph (rule-based links + Gemini proposals, pass 2)
     ↓
-Human Review ← (You stay in control)
+Explainable attention priority + potential downstream impact
+    ↓
+Human review ← (You stay in control)
 ```
 
 Instead of:
@@ -60,18 +64,19 @@ Conan produces:
 
 ```
 CONTRACT HEALTH
-├── 12 Obligations Detected
-│   ├── 7 Active
-│   ├── 3 Upcoming
-│   ├── 1 High Risk
-│   └── 1 Missing Information
-├── Next Critical Action: Submit compliance certificate
-├── Due: 15 October
-├── Risk: HIGH
-└── Reason:
-    • Deadline detected from Clause 8.2
-    • Required document not marked complete
-    • Submission depends on prior approval
+├── 18 Obligations Detected
+│   ├── 6 Needs review
+│   ├── 5 Waiting on a trigger date ("Invoice received" not set)
+│   ├── 3 High / Critical priority
+│   └── 1 Potential conflict (§6.3 "30 days" vs Schedule B "Net 45")
+├── Next Critical Action: Pay undisputed invoice amounts (§6.3 · p. 4)
+├── Due: 2 November (invoice received 3 Oct, set by you, + 30 calendar days)
+├── Attention priority: 69 · HIGH
+└── Why:
+    • +20 due within 7 days
+    • +15 explicit penalty: "interest at 1.5% per month"
+    • +12 part of a flagged conflict
+    • +7  potential downstream impact: delivery (§3.1) is blocked
 ```
 
 ---
@@ -82,32 +87,31 @@ CONTRACT HEALTH
 
 | Feature | Description |
 |---------|------------|
-| **📄 Multi-Format Upload** | PDF, DOCX (MVP: PDF) with page-level tracking |
-| **🔍 Clause Classification** | Automatic categorization (Payment, Renewal, Compliance, Penalty, etc.) |
-| **📋 Obligation Extraction** | Actor, action, deadline, amount, penalties, dependencies |
-| **⏰ Temporal Intelligence** | Convert "30 days before expiry" → actual dates |
-| **🕸️ Obligation Graph** | Visual dependency map with React Flow |
-| **⚠️ Risk Scoring** | Deadline proximity + penalty severity + dependency status |
-| **📊 Dashboard** | Overview, obligations, timeline, risk center |
-| **🔗 Source Traceability** | Click any extracted item → PDF page + exact clause |
+| **📄 PDF Upload** | Text-based PDFs up to 10 MB / 30 pages, with page-level tracking (no OCR) |
+| **🔍 Clause Classification** | Payment, renewal, termination, compliance, delivery, penalty, confidentiality, other |
+| **📋 Obligation Extraction** | Actor, action, object, trigger, deadline rule, amount, penalty, quoted evidence |
+| **⏰ Temporal Intelligence** | "Within 30 days of invoice receipt" becomes a real date **only once you enter the invoice date**. Conan never guesses dates. |
+| **🕸️ Obligation Graph** | Interactive dependency map with React Flow (dashed = AI-proposed link, solid = confirmed) |
+| **⚠️ Explainable Priority** | Additive factors you can see, labelled *attention priority*, not a probability of breach |
+| **📊 Workspace** | Overview, obligations, graph, timeline, conflicts |
+| **🔗 Source Traceability** | Every item opens its clause with the evidence quote highlighted and the page number shown |
 
 ### Innovation Differentiators 🚀
 
 | Differentiator | Impact |
 |---------------|--------|
-| **Obligation Graph + Risk Propagation** | "Delay in approval may affect 3 downstream obligations" |
-| **Contract Contradiction Detection** | Flag temporal/logical inconsistencies for human review |
-| **Explainable Risk** | "HIGH RISK because: deadline approaching + approval pending + penalty attached" |
-| **Human-in-the-Loop Verification** | Users confirm/edit AI extractions before finalizing |
-| **Contract Change Intelligence** | Compare versions → show material changes (stretch) |
+| **Obligation Graph + Risk Propagation** | "Delivery is blocked, so acceptance, invoicing and payment may be affected." Every link shows its evidence. |
+| **Potential Conflict Detection** | Flags inconsistent deadlines, amounts or notice periods side by side. Conan flags; it doesn't decide. |
+| **Explainable Priority** | A "Why?" breakdown whose factors add up to the score |
+| **Human-in-the-Loop Verification** | Confirm, edit or reject any extraction or link, with an audit trail |
+| **Evidence-First Extraction** | A quote that can't be found in the source is marked *unverified* and sent to review |
 
 ### Stretch Features 🎁
 
-- 📅 Contract obligation calendar with export (ICS/CSV)
-- 🔄 Version comparison with semantic diff
-- 📊 Multi-contract dashboard
-- 📧 Email reminders for upcoming obligations
-- 🔐 Risk propagation visualization
+- 📅 Calendar export: ICS with reminders 7 days and 1 day before, plus CSV
+- 📧 One real "send test reminder" email (no scheduler during the hackathon)
+- 💬 SMS reminder preview, clearly labelled *simulated, not sent*
+- 🔄 Version comparison and 📊 multi-contract dashboard, on the roadmap unless there's spare time
 
 ---
 
@@ -119,63 +123,47 @@ CONTRACT HEALTH
                          USER
                           │
                           ↓
-                 ┌─────────────────┐
-                 │   React UI      │
-                 │ • Dashboard     │
-                 │ • Timeline      │
-                 │ • Obligation    │
-                 │   Graph         │
-                 └────────┬────────┘
-                          │
-                          ↓
-                 ┌─────────────────┐
-                 │ Node / Express  │
-                 │ API Gateway     │
-                 │ • JWT Auth      │
-                 │ • Multer Upload │
-                 └────────┬────────┘
-                          │
-              ┌───────────┴────────────┐
-              ↓                        ↓
-       ┌──────────────┐         ┌──────────────┐
-       │ Python       │         │ PostgreSQL/  │
-       │ FastAPI      │         │ MongoDB      │
-       │ • PDF parse  │         │              │
-       │ • NLP/LLM    │         │ • Contracts  │
-       │ • Temporal   │         │ • Clauses    │
-       │ • Risk calc  │         │ • Obligations│
-       └──────┬───────┘         │ • Users      │
-              │                 └──────────────┘
-      ┌───────┼────────┐
-      ↓       ↓        ↓
-   Gemini  spaCy   Temporal
-    API   Embeddings Engine
-      │       │        │
-      └───────┼────────┘
-              ↓
-       Obligation Graph
-              │
-              ↓
-          Risk Engine
-              │
-              ↓
-      Contract Intelligence
+                 ┌─────────────────────┐
+                 │  React UI (Vercel)  │
+                 │ • Overview          │
+                 │ • Obligations       │
+                 │ • Graph (React Flow)│
+                 │ • Timeline          │
+                 └──────────┬──────────┘
+                            │ HTTPS JSON · job polling
+                            ↓
+                 ┌─────────────────────┐        ┌──────────────┐
+                 │ FastAPI (Render)    │◄──────►│ Neon         │
+                 │ • Upload validation │        │ Postgres     │
+                 │ • Async job runner  │        │ • Contracts  │
+                 │ • Pipeline stages   │        │ • Clauses    │
+                 │ • Recompute on edit │        │ • Obligations│
+                 └──────────┬──────────┘        │ • Edges      │
+                            │                   │ • Events     │
+          ┌─────────────────┼─────────────────┐ │ • LLM cache  │
+          ↓                 ↓                 ↓ └──────────────┘
+      PyMuPDF          Gemini API        Deterministic
+   (text + offsets)   (P1 obligations,   engines: evidence,
+                       P2 dependency     dates, edges,
+                       proposals)        conflicts, risk
 ```
 
-### ML/NLP Components
+**One backend, no API gateway.** A single FastAPI service runs the pipeline as an in-process async job. Gemini is used only where language understanding is needed. Everything after extraction is deterministic code, so editing a field recomputes dates, the graph and risk instantly, without calling the LLM.
+
+### Where AI is used (and where it isn't)
 
 | Task | Approach |
 |------|----------|
-| PDF Extraction | Deterministic (PyMuPDF) |
-| Clause Segmentation | NLP + Rules |
-| Clause Classification | LLM (Gemini) + Embeddings |
-| Entity Extraction | LLM + spaCy |
-| Date Extraction | NLP + Temporal Rules |
-| Obligation Extraction | LLM (structured output) |
-| Semantic Similarity | Sentence Transformers |
-| Risk Scoring | ML + Weighted Rules |
-| Dependency Detection | LLM + Graph Logic |
-| Explanation Generation | LLM + Source Evidence |
+| PDF extraction | Deterministic (PyMuPDF), with invisible-text filtering |
+| Clause segmentation | Heading and font heuristics, with a paragraph fallback |
+| Clause classification | Gemini (in pass 1), with a keyword fallback |
+| Obligation extraction | Gemini structured output (flat schema), pass 1 |
+| Evidence and page reference | Deterministic: fuzzy quote match against the PDF text; page = position of the match |
+| Date resolution | Deterministic rules plus trigger events you set; the LLM never computes dates |
+| Dependency detection | Rule-based links (cross-references, event chains, penalties) plus Gemini proposals (pass 2) |
+| Conflict detection | Deterministic attribute comparison |
+| Risk scoring | Transparent additive points; no ML model |
+| Explanations | Templates over visible factors; no LLM prose |
 
 ---
 
@@ -186,131 +174,103 @@ CONTRACT HEALTH
 React 18
 ├── Vite (build)
 ├── Tailwind CSS (styling)
-├── React Flow (obligation graph)
-├── Recharts (timeline visualization)
+├── @xyflow/react + dagre (obligation graph + auto-layout)
+├── TanStack Query (data fetching, job polling)
 ├── React Router (navigation)
-└── Axios (HTTP client)
+└── date-fns (dates)
 ```
 
-### Backend
+### Backend (single service)
 ```
-Node.js + Express.js
-├── JWT (authentication)
-├── Multer (file uploads)
-├── Cors (cross-origin)
-└── Mongoose/Prisma (ORM)
-```
-
-### AI/NLP Service
-```
-Python + FastAPI
-├── PyMuPDF (PDF parsing)
-├── spaCy (NLP)
-├── Sentence Transformers (embeddings)
-├── Scikit-learn (risk scoring)
-├── Temporal reasoning (dateutil, dateparser)
-└── Gemini API (LLM extraction)
+Python 3.11 + FastAPI + uvicorn
+├── PyMuPDF (PDF text with page offsets)
+├── Pydantic v2 (API + LLM schemas)
+├── google-genai (Gemini structured output)
+├── rapidfuzz (evidence verification)
+├── python-dateutil (date arithmetic)
+└── SQLModel + psycopg 3 (Postgres)
 ```
 
 ### Database
 ```
-PostgreSQL (Recommended)
-or MongoDB (Semi-structured contracts)
-├── Cloud: Neon / Supabase (free tier)
-└── Collections: Users, Contracts, Clauses, Obligations, Dependencies
+Neon Postgres (free tier)
+└── Tables: contracts, jobs, pages, clauses, obligations, edges,
+            events, conflicts, review_actions, llm_cache, analysis_cache
 ```
 
 ### Deployment
 ```
 Frontend: Vercel
-Backend: Render / Railway
-AI Service: Render / Modal
-Database: Neon / Supabase
+Backend:  Render (1 web service)
+Database: Neon
 ```
+
+Deliberately left out for the hackathon: a Node/Express gateway, MongoDB, spaCy, sentence-transformers, ML risk models, queues (Redis/Celery), user accounts, and OCR.
 
 ---
 
 ## ⚡ Quick Start
 
+> 🚧 Code lands during the hackathon. These commands follow the planned layout in [docs/TRD.md](./docs/TRD.md).
+
 ### Prerequisites
 
-- Node.js 16+
-- Python 3.9+
-- PostgreSQL 13+ (or MongoDB)
+- Node.js 18+
+- Python 3.11+
+- A Postgres database (e.g. a free [Neon](https://neon.tech) project)
+- A Gemini API key
 - Git
 
 ### 1️⃣ Clone Repository
 
 ```bash
-git clone https://github.com/your-team/conan.git
+git clone https://github.com/ofcourseabhishek/conan.git
 cd conan
 ```
 
-### 2️⃣ Frontend Setup
+### 2️⃣ Backend Setup
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+cp .env.example .env
+# DATABASE_URL=postgresql://...        (Neon, sslmode=require)
+# GEMINI_API_KEY=your-key
+# GEMINI_RPM=...                        (from your quota page)
+# ALLOWED_ORIGINS=http://localhost:5173
+
+uvicorn app.main:app --reload
+```
+
+The API runs on `http://localhost:8000`. Tables are created on startup. Load the demo contract with:
+
+```bash
+python scripts/seed_demo.py
+```
+
+### 3️⃣ Frontend Setup
 
 ```bash
 cd frontend
 npm install
+echo "VITE_API_BASE=http://localhost:8000" > .env.local
 npm run dev
 ```
 
-Server runs on `http://localhost:5173`
+The app runs on `http://localhost:5173`.
 
-### 3️⃣ Backend Setup
+### 4️⃣ Try It
 
-```bash
-cd backend
-npm install
+1. Open `http://localhost:5173`
+2. Click **Try sample contract**, or drop a text-based PDF
+3. Watch the processing stages
+4. Explore the overview, obligations, graph, timeline, and conflicts
+5. Set a trigger date (e.g. *Invoice received*) and watch deadlines resolve
 
-# Create .env
-cp .env.example .env
-
-# Add your values:
-# DATABASE_URL=postgresql://...
-# GEMINI_API_KEY=your-key
-# JWT_SECRET=your-secret
-
-npm run dev
-```
-
-Server runs on `http://localhost:5000`
-
-### 4️⃣ AI Service Setup
-
-```bash
-cd ai-service
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-pip install -r requirements.txt
-
-# Create .env
-cp .env.example .env
-# Add GEMINI_API_KEY=your-key
-
-python -m uvicorn main:app --reload
-```
-
-Service runs on `http://localhost:8000`
-
-### 5️⃣ Database Setup
-
-```bash
-# If using PostgreSQL
-createdb conan_dev
-psql conan_dev < schema.sql
-
-# If using MongoDB
-# Update MONGODB_URI in backend .env
-```
-
-### 6️⃣ Test Upload
-
-1. Navigate to `http://localhost:5173`
-2. Click **"Upload Contract"**
-3. Drag & drop `sample-contract.pdf`
-4. Click **"Analyze"**
-5. View dashboard, timeline, and obligation graph
+The full list of environment variables is in [TRD §15](./docs/TRD.md#15-deployment-and-configuration).
 
 ---
 
@@ -318,48 +278,30 @@ psql conan_dev < schema.sql
 
 ```
 conan/
-├── frontend/                   # React + Vite + Tailwind
-│   ├── src/
-│   │   ├── components/        # Dashboard, Graph, Timeline
-│   │   ├── pages/             # Upload, Overview, Detail
-│   │   ├── hooks/             # useContract, useObligation
-│   │   ├── utils/             # API client, formatters
-│   │   └── App.jsx
-│   ├── package.json
-│   └── vite.config.js
+├── backend/                     # Python + FastAPI (single service)
+│   ├── app/
+│   │   ├── main.py              # App, CORS, startup (create tables, requeue stale jobs)
+│   │   ├── models.py            # SQLModel tables
+│   │   ├── schemas.py           # Pydantic API + LLM schemas
+│   │   ├── api/                 # contracts, jobs, obligations, edges, events, exports
+│   │   └── pipeline/            # ingest, segment, gemini, extract, verify, dedupe,
+│   │                            # temporal, edges, conflicts, risk, runner
+│   ├── prompts/                 # P1 / P2 system prompts
+│   ├── fixtures/                # demo contract, known-good analysis, gold set
+│   ├── scripts/seed_demo.py
+│   └── tests/                   # unit, invariant, injection, eval_score.py
 │
-├── backend/                    # Node + Express + Mongoose
-│   ├── routes/                # /upload, /contracts, /obligations
-│   ├── controllers/           # Business logic
-│   ├── models/                # User, Contract, Clause, Obligation
-│   ├── middleware/            # Auth, errorHandler
-│   ├── config/                # Database, Gemini
-│   ├── .env.example
-│   └── server.js
+├── frontend/                    # React + Vite + Tailwind
+│   ├── public/offline_fixture.json
+│   └── src/
+│       ├── api/  types/
+│       ├── pages/               # Upload, Workspace
+│       └── components/          # ObligationTable, SourcePanel, ReviewDrawer,
+│                                # GraphView, Timeline, EventsPanel, ConflictsPanel, …
 │
-├── ai-service/                # Python + FastAPI
-│   ├── main.py               # FastAPI app
-│   ├── services/
-│   │   ├── pdf_parser.py     # Extract text from PDF
-│   │   ├── clause_classifier.py
-│   │   ├── obligation_extractor.py
-│   │   ├── temporal_engine.py
-│   │   └── risk_engine.py
-│   ├── models/               # Pydantic schemas
-│   ├── utils/
-│   ├── requirements.txt
-│   └── .env.example
-│
-├── database/                  # Schema and migrations
-│   ├── schema.sql
-│   └── migrations/
-│
-├── docs/                      # Documentation
-│   ├── API.md
-│   ├── ARCHITECTURE.md
-│   └── DEPLOYMENT.md
-│
-└── README.md                  # This file
+├── docs/                        # PRD, TRD, App Flow
+├── .council/                    # Engineering council record (design decisions)
+└── README.md                    # This file
 ```
 
 ---
@@ -368,101 +310,90 @@ conan/
 
 **[Deployed Instance](https://conan-demo.vercel.app)** (Coming Soon)
 
-**Demo Video:** [YouTube](https://youtube.com) (Coming Soon)
+**Demo Video:** (Coming Soon)
 
-**Sample Contract:** [Download](./sample-contract.pdf)
+**Sample Contract:** a fictional *Master Supply & Services Agreement* between Tarnwick Robotics Pvt. Ltd. and Velloran Components LLP. Both companies are invented. It is written during the hackathon and loaded through the **Try sample contract** button.
 
-### Demo Flow
+### Demo Flow (3 minutes)
 
-1. **Upload** → `Vendor_Service_Agreement.pdf`
-2. **Analysis** → 18 clauses, 11 obligations, 4 deadlines, 2 penalties
-3. **Dashboard** → Risk overview (2 Critical, 3 High, 4 Medium, 2 Low)
-4. **Click Obligation** → "Submit compliance certificate"
-5. **View Details** → Deadline, responsible party, penalty, dependencies
-6. **Click "Why?"** → Explainable risk factors
-7. **View Graph** → Obligation dependency map
-8. **Click Source** → PDF opens at exact page + clause
+1. **Try sample contract** → a cached analysis loads in about 3 s (clearly labelled)
+2. **Overview** → parties, 18 obligations, 5 dates waiting on a trigger event
+3. **Open the payment obligation** → quote highlighted on p. 4, "Needs trigger date"
+4. **Set "Invoice received"** → six deadlines resolve on the timeline, each with its calculation shown
+5. **Graph** → mark delivery *blocked*; acceptance, invoice and payment show potential downstream impact; open a link to see its evidence
+6. **Conflicts** → §6.3 "30 days" vs Schedule B "Net 45", shown side by side
+7. **Edit + confirm** a field (audit trail) → **export ICS**
+
+The screen-by-screen flow is in [docs/App-Flow.md](./docs/App-Flow.md).
 
 ---
 
-## 📊 Database Schema
+## 📊 Data Model
 
-### Key Collections/Tables
+| Table | Key contents |
+|-------|--------------|
+| `contracts` | name, parties, page count, content hash, pipeline version, sample flag |
+| `jobs` | state, stage, progress, warnings, error code |
+| `clauses` | section ref, heading, category, text, char offsets, page span |
+| `obligations` | actor, modality, action, object, trigger/produced event, deadline rule, amount, penalty, evidence quote + span, page(s), confidence, due date + provenance, review state, status |
+| `edges` | upstream → downstream, relation, source (rule/AI), status (proposed/confirmed/rejected), evidence |
+| `events` | trigger events (invoice receipt, delivery, …) with dates set by you or by completion |
+| `conflicts` | kind, the two clauses, both quotes, status |
+| `review_actions` | audit trail (before/after) |
+| `llm_cache` · `analysis_cache` | Gemini call memoization, known-good analyses |
 
-```javascript
-// User
-{
-  _id, email, name, subscription, createdAt
-}
-
-// Contract
-{
-  _id, userId, name, parties, startDate, endDate, 
-  status, riskScore, obligationCount, createdAt
-}
-
-// Clause
-{
-  _id, contractId, section, text, type, page, 
-  confidence, confidence, extractedAt
-}
-
-// Obligation
-{
-  _id, contractId, actor, action, object, amount, deadline,
-  deadlineType, condition, penalty, clauseId, page, status,
-  riskScore, confidence, dependencies: [{ from, to, relationship }]
-}
-
-// Dependency
-{
-  from: obligationId, to: obligationId, relationship
-}
-```
+Full DDL: [TRD §6](./docs/TRD.md#6-data-model).
 
 ---
 
 ## 🤖 Gemini API Integration
 
-### Two-Pass Processing (Recommended)
+### Two-Pass Processing
 
-**Pass 1: Clause Extraction**
+**Pass 1: Obligation extraction** (batches of whole clauses, about 8k characters each)
 ```python
-# Prompt: "Extract all contractual clauses. Return JSON."
-# Output: [{ section, text, type, page }]
+# Input:  <clause id="C07" ref="6.3">…</clause>  (untrusted data, delimited)
+# Output: flat JSON: category per clause; per obligation: actor, modality, action, object,
+#         trigger_event, deadline fields, amount, penalty, verbatim evidence_quote, confidence
+# Never: page numbers, IDs, or computed dates
 ```
 
-**Pass 2: Obligation Extraction**
+**Pass 2: Dependency proposals** (one call over a compact obligation list)
 ```python
-# Prompt: "For each clause, extract obligations."
-# Output: [{ actor, action, deadline, penalty, ... }]
+# Output: [{ upstream_id, downstream_id, relation, evidence_quote, confidence }]
+# relation ∈ must_precede | condition_for | depends_on | may_trigger
+# Every proposed link is verified against the source and stays "proposed" until a person confirms it
 ```
 
-### Risk Calculation
+Calls are rate-limited to the free-tier quota and cached in Postgres, so a restarted job replays finished calls for free. The prompts and schemas are in [TRD §8](./docs/TRD.md#8-llm-integration).
 
-```python
-Risk = w₁D + w₂P + w₃C + w₄S + w₅U
+### Attention Priority (0–100)
 
-where:
-D = deadline urgency (0–1)
-P = penalty severity (0–1)
-C = dependency completion (0–1)
-S = obligation status (0–1)
-U = uncertainty (0–1)
-
-Output: 0.00–0.30 (Low), 0.30–0.60 (Medium), 0.60–0.80 (High), 0.80–1.00 (Critical)
 ```
+Additive points; each factor is shown with its source:
+  overdue +35 · due ≤7d +20 · due 8–30d +10 · blocked +30
+  penalty +15 · amount stated +5 · category +7/+10
+  unresolved date +8 · unspecified day type +5 · unverified evidence +10
+  low confidence +7 · in a conflict +12
+  potential downstream impact 0–30:
+      30 × source strength × Π link weight × 0.6^(hop−1), max over paths, ≤3 hops
+
+Bands: Low 0–24 · Medium 25–49 · High 50–74 · Critical 75–100
+```
+
+It is a prioritization aid, not a probability of breach.
 
 ---
 
 ## 🔐 Security & Privacy
 
-- ✅ JWT authentication for all API endpoints
-- ✅ File uploads validated (size, type, virus scan)
-- ✅ Database encryption at rest
-- ✅ HTTPS/TLS for all traffic
-- ✅ No contract text stored in logs
-- ✅ GDPR compliance ready
+- ✅ API keys only on the server (Render env vars); nothing secret in the frontend bundle
+- ✅ CORS locked to the deployed frontend
+- ✅ Uploads validated before parsing: size, PDF magic bytes, page cap, encryption, text layer
+- ✅ Prompt-injection defenses: hidden-text filtering, delimited untrusted input, strict schemas, server-assigned IDs and pages, quote verification
+- ✅ No contract text, quotes, or prompts in logs
+- ✅ PDF bytes discarded after ingest; hard delete of a contract and all derived data
+- ⚠️ No user accounts in the hackathon build. Use **fictional or public contracts only**: free-tier LLM inputs may be used by the provider.
 
 ---
 
@@ -470,73 +401,61 @@ Output: 0.00–0.30 (Low), 0.30–0.60 (Medium), 0.60–0.80 (High), 0.80–1.00
 
 | Document | Purpose |
 |----------|---------|
-| [API.md](./docs/API.md) | REST API endpoints + examples |
-| [ARCHITECTURE.md](./docs/ARCHITECTURE.md) | System design deep-dive |
-| [DEPLOYMENT.md](./docs/DEPLOYMENT.md) | Production deployment guide |
-| [FEATURES.md](./docs/FEATURES.md) | Feature roadmap + prioritization |
+| [PRD.md](./docs/PRD.md) | Product requirements: problem, users, scope, acceptance criteria, metrics |
+| [TRD.md](./docs/TRD.md) | Technical requirements: architecture, data model, API, prompts, algorithms, plan |
+| [App-Flow.md](./docs/App-Flow.md) | Screens, user flows, demo flow, states, and copy |
+| [Council decision](./.council/2026-09-26-conan-plan/40-decision.md) | Why the architecture looks the way it does (multi-model engineering council) |
 
 ---
 
 ## 🧪 Testing
 
 ```bash
-# Frontend tests
-cd frontend
-npm run test
-
-# Backend tests
 cd backend
-npm run test
-
-# AI Service tests
-cd ai-service
-pytest
+pytest                        # unit, invariant and injection tests (LLM replay mode, no network)
+python tests/eval_score.py    # precision/recall against the hand-labelled gold set (target recall ≥ 80%)
 ```
+
+Key guarantees under test:
+- **Zero invented dates:** every due date traces back to contract text, a date you entered, or a completion
+- **Correct pages:** every verified obligation's page contains its quote
+- **Reproducible risk:** scores equal the sum of visible factors; propagation never compounds
 
 ---
 
 ## 📦 MVP Checklist
 
-- [x] PDF upload + text extraction
-- [x] Clause classification
-- [x] Obligation extraction (actor, action, deadline, penalty)
-- [x] Parties extraction
-- [x] Date extraction + temporal reasoning
-- [x] Obligation dashboard
-- [x] Risk score calculation
-- [x] Obligation graph (React Flow)
-- [x] Source traceability (page + clause links)
-- [x] Human verification workflow
+- [ ] PDF upload + validation + page-indexed text extraction
+- [ ] Clause segmentation + classification
+- [ ] Obligation extraction (actor, action, trigger, deadline rule, amount, penalty, evidence)
+- [ ] Evidence verification + derived page references
+- [ ] Trigger events + date resolution (no invented dates)
+- [ ] Review workflow (confirm / edit / reject + audit trail)
+- [ ] Obligation list with filters
+- [ ] Explainable attention priority
+- [ ] Timeline (dated + "needs trigger date")
+- [ ] Obligation graph (React Flow)
+- [ ] D1: dependency risk propagation
+- [ ] D2: potential conflict detection
 
 ---
 
 ## 🚀 Roadmap
 
-### Phase 1: MVP (Hackathon)
-- PDF parsing + clause extraction
-- Obligation graph + risk engine
-- Dashboard + timeline
-- Source-linked evidence
+### Phase 1: Hackathon (24 h)
+- MVP + dependency risk propagation + conflict detection
+- ICS/CSV export, test email, simulated SMS preview (stretch)
 
-### Phase 2: Differentiation
-- ✅ Contract contradiction detection
-- ✅ Explainable risk ("Why?" button)
-- ✅ Risk propagation (dependency chains)
-- ✅ Multi-contract overview
+### Phase 2: Stabilize
+- User accounts, storage and retention policy, stronger parsing, audit export
 
-### Phase 3: Stretch Features
-- 📅 Calendar export (ICS/CSV)
-- 🔄 Contract version comparison
-- 📧 Email reminders
-- 🔐 Obligation status tracking
-- 📊 Team collaboration
+### Phase 3: Intelligence & Workflow
+- Larger evaluation set, calibrated confidence, conflict review workflow
+- Scheduled email/SMS reminders, calendar sync, assignment and ownership
+- Contract version comparison, multi-contract dashboard
 
-### Phase 4: Enterprise
-- SSO / SAML integration
-- Audit logs
-- Bulk contract ingestion
-- API for legal systems
-- Obligation automation
+### Phase 4: Scale & Governance
+- Access control, encryption, monitoring, tenant isolation, security review, OCR
 
 ---
 
@@ -544,20 +463,17 @@ pytest
 
 | Role | Responsibility |
 |------|----------------|
-| **Backend + AI** | PDF parsing, LLM integration, risk engine, temporal logic |
-| **Frontend + Graph** | React dashboard, React Flow obligation graph, timeline UI |
+| **Person A: Backend + AI** | PDF ingest, Gemini extraction, verification, dates, dependency edges, risk engine, API |
+| **Person B: Frontend + Demo** | React workspace, React Flow graph, timeline, demo contract, gold-set labels, pitch |
 
-**Time Allocation:** 24-hour hackathon split
-- Hours 0–2: Setup + architecture
-- Hours 2–5: PDF pipeline
-- Hours 5–8: LLM extraction
-- Hours 8–11: Obligation database
-- Hours 11–14: Obligation graph
-- Hours 14–17: Risk engine
-- Hours 17–19: Dashboard UI
-- Hours 19–21: Contradiction detection + "Why?" feature
-- Hours 21–23: Testing + demo contract
-- Hours 23–24: Presentation + video
+**24-hour plan with checkpoints** (details in [TRD §14](./docs/TRD.md#14-delivery-plan)):
+- **H0–1:** Scaffold, API contract, hello-world deploys, verify the Gemini quota
+- **H1–4:** Ingest + segmentation · demo contract + UI shell → **CP1 (H4): real clauses in the hosted UI**
+- **H4–9:** Extraction, verification, dates · table, source panel, review, timeline → **CP2 (H9): end to end on the hosted URL**
+- **H9–13:** Edges, risk, propagation · graph + risk breakdown → **CP3 (H13): MVP + D1 live (if red, stop features)**
+- **H13–16:** Conflicts, cache, exports, fallbacks → **Feature freeze (H16)**
+- **H16–21.5:** Prompt tuning to ≥ 80% recall, unaided user test, pitch, backup video (staggered sleep)
+- **H21.5–24:** Blocker fixes, `demo-safe` tag, rehearse three times
 
 ---
 
@@ -582,17 +498,17 @@ This is a hackathon project. For future enhancements:
 ## 💬 Support
 
 - 📧 Email: [your-email@example.com]
-- 💻 GitHub Issues: [Report bugs here](https://github.com/your-team/conan/issues)
-- 📚 Documentation: [Full docs](https://github.com/your-team/conan/wiki)
+- 💻 GitHub Issues: [Report bugs here](https://github.com/ofcourseabhishek/conan/issues)
+- 📚 Documentation: [docs/](./docs)
 
 ---
 
 ## 🎓 Inspirations & References
 
 - **Problem:** Contract obligation complexity & missed deadlines
-- **Solution Approach:** Graph-based obligation mapping + explainable risk
-- **Innovation:** Dependency propagation + contradiction detection + human verification
-- **Stack:** Modern AI/ML + proven web technologies
+- **Solution Approach:** Evidence-first obligation extraction + graph-based dependency mapping + explainable priority
+- **Innovation:** Dependency propagation + conflict detection + human verification
+- **Stack:** One FastAPI service, a structured-output LLM used narrowly, and deterministic code everywhere correctness matters
 
 ---
 
