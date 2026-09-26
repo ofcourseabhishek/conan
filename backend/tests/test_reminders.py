@@ -44,7 +44,8 @@ def test_sends_one_fixed_template(seeded, enabled):  # noqa: F811
     assert r.status_code == 200 and r.json()["sent"] is True
     [m] = enabled
     assert m["to"] == "owner@example.com"
-    assert m["subject"].startswith("[Conan test reminder] Velloran Components LLP: pay") and "02 Nov 2026" in m["subject"]
+    assert m["subject"].startswith("[Conan test reminder] Velloran Components LLP: pay")
+    assert m["subject"].endswith("(due 02 Nov 2026)")
     assert "Attention priority" in m["text"] and "not legal advice" in m["text"] and "scheduled worker" in m["text"]
 
 
@@ -84,3 +85,9 @@ def test_unknown_obligation_and_provider_error_without_leaking_address(seeded, e
         r = remind(client, cid, email="secret.person@example.com")
     assert r.status_code == 502 and "own account address" in r.json()["detail"]
     assert "secret.person" not in caplog.text
+
+
+def test_subject_without_a_due_date(seeded, enabled):  # noqa: F811
+    client, cid, _ = seeded
+    assert remind(client, cid).status_code == 200
+    assert enabled[0]["subject"].endswith("(no due date yet)") and "due no due" not in enabled[0]["subject"]

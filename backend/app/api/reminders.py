@@ -67,7 +67,7 @@ async def send_email(to: str, subject: str, text: str, html_body: str) -> str:
 def compose(contract_name: str, o, section: str) -> tuple[str, str, str]:
     due = o.due_date.strftime("%d %b %Y") if o.due_date else "no due date yet"
     what = f"{o.actor}: {o.action} {o.object or ''}".strip()
-    subject = f"[Conan test reminder] {what[:90]} (due {due})"
+    subject = f"[Conan test reminder] {what[:90]} ({'due ' + due if o.due_date else due})"
     rows = [
         ("Contract", contract_name),
         ("Obligation", f"{o.id} · §{section} · page {o.page_start}" + (" (approx.)" if o.page_approx else "")),
