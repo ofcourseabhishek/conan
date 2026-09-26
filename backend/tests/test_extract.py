@@ -37,7 +37,7 @@ class Script:
     def __init__(self, *outs):
         self.outs, self.users = list(outs), []
 
-    async def __call__(self, system, user, schema, api_key=""):
+    async def __call__(self, system, user, schema, api_key="", model=""):
         self.users.append(user)
         out = self.outs.pop(0)
         if isinstance(out, Exception):
@@ -101,7 +101,7 @@ async def test_invalid_output_gets_one_reask_with_error():
 
 
 async def test_second_failure_marks_clauses_failed():
-    async def by_clause(system, user, schema, api_key=""):  # batches run concurrently: answer by content, not order
+    async def by_clause(system, user, schema, api_key="", model=""):  # batches run concurrently: answer by content, not order
         if 'id="C01"' in user:
             return RawResponse("nope", "STOP")
         return resp([ob("C02", "Each party bears its own taxes", actor="Supplier")])

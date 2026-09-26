@@ -15,7 +15,9 @@ _n = itertools.count()
 
 
 def settings(**kw) -> Settings:
-    base = dict(gemini_rpm=6000, gemini_concurrency=2, prompt_version=f"test-{next(_n)}")
+    # single model by default so retry counts are easy to reason about; fallback tests opt in
+    base = dict(gemini_rpm=6000, gemini_concurrency=2, prompt_version=f"test-{next(_n)}",
+                gemini_model="m1", gemini_fallback_models="")
     return Settings(**{**base, **kw})
 
 
@@ -24,7 +26,7 @@ class Fake:
         self.outcomes = list(outcomes)
         self.calls = 0
 
-    async def __call__(self, system, user, schema, api_key=""):
+    async def __call__(self, system, user, schema, api_key="", model=""):
         self.calls += 1
         out = self.outcomes.pop(0) if self.outcomes else OK
         if isinstance(out, Exception):
@@ -137,7 +139,7 @@ class ByKey:
         self.per_key = {k: list(v) for k, v in (per_key or {}).items()}
         self.used = []
 
-    async def __call__(self, system, user, schema, api_key=""):
+    async def __call__(self, system, user, schema, api_key="", model=""):
         self.used.append(api_key)
         queue = self.per_key.get(api_key)
         out = queue.pop(0) if queue else OK
@@ -208,3 +210,75 @@ async def test_empty_key_is_refused_by_real_transport():
     with pytest.raises(ConanError) as ei:
         await c.generate("s", "u", P1Response)
     assert ei.value.code == "LLM_UNAVAILABLE"
+
+
+# ---------------------------------------------------------------- model fallback
+
+
+class ByModel:
+    """Fake transport whose behaviour depends on the model; records the model per call."""
+    def __init__(self, per_model=None):
+        self.per_model = {m: list(v) for m, v in (per_model or {}).items()}
+        self.used = []
+
+    async def __call__(self, system, user, schema, api_key="", model=""):
+        self.used.append(model)
+        queue = self.per_model.get(model)
+        out = queue.pop(0) if queue else OK
+        if isinstance(out, Exception):
+            raise out
+        return out
+
+
+def chain(**kw):
+    return dict(gemini_model="m1", gemini_fallback_models="m2,m3", **kw)
+
+
+def test_models_merge_and_dedupe():
+    assert Settings(gemini_model="a", gemini_fallback_models=" b, a ,,c").models == ["a", "b", "c"]
+
+
+async def test_overloaded_model_fails_over_without_waiting_and_sticks():
+    sleeps = Sleeps()
+    fake = ByModel({"m1": [LLMUnavailable("503")]})
+    c = vclient(fake, sleeps, **chain())
+    r = await c.generate("s", "u1", P1Response)
+    assert r.model == "m2" and fake.used == ["m1", "m2"] and sleeps.waits == []
+    await c.generate("s", "u2", P1Response)
+    assert fake.used[-1] == "m2"  # sticky: no slow 503 on the primary for every call
+
+
+async def test_primary_is_retried_after_a_while():
+    sleeps = Sleeps()
+    fake = ByModel({"m1": [LLMUnavailable("503")]})
+    c = vclient(fake, sleeps, **chain())
+    await c.generate("s", "u1", P1Response)
+    sleeps.t += 301
+    r = await c.generate("s", "u2", P1Response)
+    assert r.model == "m1"
+
+
+async def test_retired_model_is_dropped():
+    from app.pipeline.gemini import ModelNotFound
+    fake = ByModel({"m1": [ModelNotFound("m1")]})
+    c = vclient(fake, **chain())
+    await c.generate("s", "u1", P1Response)
+    await c.generate("s", "u2", P1Response)
+    assert "m1" in c._dead_models and fake.used == ["m1", "m2", "m2"]
+
+
+async def test_backs_off_only_after_every_model_failed_a_round():
+    sleeps = Sleeps()
+    fake = ByModel({m: [LLMUnavailable("503")] * 4 for m in ("m1", "m2", "m3")})
+    c = vclient(fake, sleeps, **chain())
+    with pytest.raises(ConanError) as ei:
+        await c.generate("s", "u", P1Response)
+    assert ei.value.code == "LLM_UNAVAILABLE"
+    backoff = [w for w in sleeps.waits if w >= 1]  # ignore 10 ms rate-limiter refills
+    assert backoff == [2.0, 4.0, 8.0] and len(fake.used) == 12  # 4 rounds x 3 models
+
+
+def test_model_chain_is_part_of_the_cache_key():
+    a = GeminiClient(settings(**chain()), transport=ByModel(), use_db_cache=False)
+    b = GeminiClient(settings(gemini_model="m1", gemini_fallback_models="m2"), transport=ByModel(), use_db_cache=False)
+    assert "|".join(a.models) != "|".join(b.models)

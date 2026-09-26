@@ -45,10 +45,15 @@ class LLMUnavailable(Exception):
     pass
 
 
+class ModelNotFound(Exception):
+    pass
+
+
 @dataclass
 class RawResponse:
     text: str
     finish_reason: str | None
+    model: str | None = None  # which model in the chain actually answered
 
 
 @dataclass
@@ -58,14 +63,16 @@ class LLMResult:
     finish_reason: str | None
     cached: bool
     key: str
+    model: str | None = None
 
     @property
     def truncated(self) -> bool:
         return (self.finish_reason or "").upper() == "MAX_TOKENS"
 
 
-# (system, user, schema_model, api_key) -> RawResponse
-Transport = Callable[[str, str, type[BaseModel], str], Awaitable[RawResponse]]
+# (system, user, schema_model, api_key, model) -> RawResponse
+Transport = Callable[[str, str, type[BaseModel], str, str], Awaitable[RawResponse]]
+PRIMARY_RETRY_S = 300  # after falling back, try the primary model again this often
 Clock = Callable[[], float]
 
 
@@ -200,22 +207,28 @@ class GeminiClient:
         self.use_db_cache = use_db_cache
         self._sleep = sleep
         self._transport = transport
+        self._clock = clock
         self._genai: dict[str, object] = {}
+        self.models = self.s.models
+        self._dead_models: set[str] = set()  # 404: retired / mistyped, skipped for this process
+        self._preferred: str | None = None  # model that last answered (sticky); None = start at the primary
+        self._preferred_since = clock()
         self.hits = self.misses = 0
 
     # ------------------------------------------------------------ public
 
     async def generate(self, system: str, user: str, schema: type[BaseModel]) -> LLMResult:
-        key = cache_key(self.s.gemini_model, self.s.prompt_version, schema, system, user)
+        # The whole model chain is part of the key: changing GEMINI_MODEL or the fallbacks re-runs calls.
+        key = cache_key("|".join(self.models), self.s.prompt_version, schema, system, user)
 
         if self.s.llm_mode == "replay":
             raw = self._replay_load(key)
             self.hits += 1
-            return LLMResult(_parse(raw.text), raw.text, raw.finish_reason, True, key)
+            return LLMResult(_parse(raw.text), raw.text, raw.finish_reason, True, key, raw.model)
 
         if self.use_db_cache and (hit := await asyncio.to_thread(self._cache_get, key)):
             self.hits += 1
-            return LLMResult(_parse(hit.text), hit.text, hit.finish_reason, True, key)
+            return LLMResult(_parse(hit.text), hit.text, hit.finish_reason, True, key, hit.model)
 
         self.misses += 1
         raw = await self._call_with_retries(system, user, schema, key)
@@ -223,15 +236,23 @@ class GeminiClient:
             await asyncio.to_thread(self._cache_put, key, raw)
         if self.s.llm_record:
             self._replay_save(key, raw)
-        return LLMResult(_parse(raw.text), raw.text, raw.finish_reason, False, key)
+        return LLMResult(_parse(raw.text), raw.text, raw.finish_reason, False, key, raw.model)
 
     # ------------------------------------------------------------ calling
 
     async def _call_with_retries(self, system: str, user: str, schema: type[BaseModel], key: str) -> RawResponse:
         transport = self._transport or self._genai_transport
         rate_retries = len(BACKOFF_S) + len(self.pool.keys) - 1  # one extra try per spare key
-        rate_hits = transient = 0
+        rate_hits = transient = failed_this_round = 0
+        if self._preferred and self._clock() - self._preferred_since > PRIMARY_RETRY_S:
+            self._preferred = None  # give the primary model another chance
+        start, hops = self._preferred, 0
         while True:
+            live = [m for m in self.models if m not in self._dead_models]
+            if not live:
+                raise ConanError("LLM_UNAVAILABLE", "no usable model: check GEMINI_MODEL / GEMINI_FALLBACK_MODELS")
+            base = live.index(start) if start in live else 0
+            model = live[(base + hops) % len(live)]
             try:
                 k = await self.pool.acquire()
             except AllKeysExhausted as exc:
@@ -240,11 +261,18 @@ class GeminiClient:
             t0 = time.monotonic()
             try:
                 async with self.sem:
-                    raw = await asyncio.wait_for(transport(system, user, schema, k.key),
+                    raw = await asyncio.wait_for(transport(system, user, schema, k.key, model),
                                                  timeout=self.s.gemini_timeout_s)
-                log.info("llm call ok key=%s api_key=#%d ms=%d finish=%s", key[:10], k.index,
+                raw.model = model
+                if model != (self._preferred or self.models[0]):
+                    self._preferred, self._preferred_since = model, self._clock()
+                log.info("llm call ok key=%s api_key=#%d model=%s ms=%d finish=%s", key[:10], k.index, model,
                          (time.monotonic() - t0) * 1000, raw.finish_reason)
                 return raw
+            except ModelNotFound:
+                log.error("gemini model %r not found (retired or mistyped); dropping it", model)
+                self._dead_models.add(model)
+                continue
             except LLMRateLimited as exc:
                 if exc.daily:
                     log.warning("llm api_key=#%d daily quota exhausted; failing over", k.index)
@@ -257,14 +285,19 @@ class GeminiClient:
                 log.warning("llm 429 api_key=#%d attempt=%d cool=%.1fs", k.index, rate_hits, wait)
                 self.pool.cool_down(k, wait)  # the next acquire picks another key if one is free
             except (LLMUnavailable, asyncio.TimeoutError) as exc:
-                if transient >= len(BACKOFF_S):
-                    raise ConanError("LLM_UNAVAILABLE") from exc
-                log.warning("llm unavailable api_key=#%d attempt=%d err=%s", k.index, transient + 1,
-                            type(exc).__name__)
-                await self._sleep(BACKOFF_S[transient])
-                transient += 1
+                # Overloaded (503) or slow: move to the next model at once; back off only after a full round.
+                log.warning("llm unavailable model=%s api_key=#%d err=%s", model, k.index, type(exc).__name__)
+                hops += 1
+                failed_this_round += 1
+                if failed_this_round >= len(live):
+                    if transient >= len(BACKOFF_S):
+                        raise ConanError("LLM_UNAVAILABLE") from exc
+                    await self._sleep(BACKOFF_S[transient])
+                    transient += 1
+                    failed_this_round = 0
 
-    async def _genai_transport(self, system: str, user: str, schema: type[BaseModel], api_key: str) -> RawResponse:
+    async def _genai_transport(self, system: str, user: str, schema: type[BaseModel], api_key: str,
+                               model: str) -> RawResponse:
         from google import genai
         from google.genai import errors, types
 
@@ -278,15 +311,18 @@ class GeminiClient:
             temperature=0,
             response_mime_type="application/json",
             response_schema=schema,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),  # no tools, ever
             http_options=types.HttpOptions(timeout=int(self.s.gemini_timeout_s * 1000)),
         )
         try:
-            resp = await client.aio.models.generate_content(model=self.s.gemini_model, contents=user, config=config)
+            resp = await client.aio.models.generate_content(model=model, contents=user, config=config)
         except errors.APIError as exc:
             if exc.code == 429:
                 raise _rate_limit_from(exc) from exc
             if exc.code in (500, 502, 503, 504):
                 raise LLMUnavailable(str(exc.code)) from exc
+            if exc.code == 404:  # retired or mistyped model id: skip it, don't retry it
+                raise ModelNotFound(model) from exc
             raise  # 400s are bugs in our request: surface them loudly
         finish = None
         if resp.candidates:
@@ -304,7 +340,8 @@ class GeminiClient:
     def _cache_put(self, key: str, raw: RawResponse) -> None:
         with Session(get_engine()) as s:
             if s.get(LLMCache, key) is None:
-                s.add(LLMCache(key=key, response={"text": raw.text, "finish_reason": raw.finish_reason}))
+                s.add(LLMCache(key=key, response={"text": raw.text, "finish_reason": raw.finish_reason,
+                                                  "model": raw.model}))
                 s.commit()
 
     def _replay_load(self, key: str) -> RawResponse:
@@ -316,7 +353,8 @@ class GeminiClient:
     def _replay_save(self, key: str, raw: RawResponse) -> None:
         REPLAY_DIR.mkdir(parents=True, exist_ok=True)
         (REPLAY_DIR / f"{key}.json").write_text(
-            json.dumps({"text": raw.text, "finish_reason": raw.finish_reason}, ensure_ascii=False), encoding="utf-8")
+            json.dumps({"text": raw.text, "finish_reason": raw.finish_reason, "model": raw.model}, ensure_ascii=False),
+            encoding="utf-8")
 
 
 def _rate_limit_from(exc) -> LLMRateLimited:

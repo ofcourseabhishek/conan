@@ -15,7 +15,9 @@ class Settings(BaseSettings):
 
     gemini_api_key: str | None = None
     gemini_api_keys: str | None = None  # comma-separated extra keys, used together with gemini_api_key
-    gemini_model: str = "gemini-2.5-flash"  # confirm at H0 against the quota page
+    gemini_model: str = "gemini-3.8-flash"  # H0: 2.5-flash is closed to new users; pin an exact id, not an alias
+    # Tried in order when the model above is overloaded (503), times out, or is retired (404).
+    gemini_fallback_models: str = "gemini-3.6-flash,gemini-3.7-flash,gemini-3.5-flash"
     gemini_rpm: int = 10
     gemini_concurrency: int = 2
     gemini_timeout_s: float = 45.0
@@ -54,6 +56,12 @@ class Settings(BaseSettings):
         """All configured Gemini keys, de-duplicated, GEMINI_API_KEY first."""
         raw = [self.gemini_api_key or ""] + (self.gemini_api_keys or "").split(",")
         return list(dict.fromkeys(k.strip() for k in raw if k and k.strip()))
+
+    @property
+    def models(self) -> list[str]:
+        """Primary model first, then fallbacks, de-duplicated."""
+        raw = [self.gemini_model] + self.gemini_fallback_models.split(",")
+        return list(dict.fromkeys(m.strip() for m in raw if m and m.strip()))
 
     @property
     def origins(self) -> list[str]:

@@ -10,7 +10,7 @@ _CLAUSE = re.compile(r'<clause id="(C\d+)" ref="[^"]*">(.*?)</clause>', re.S)
 _SENT = re.compile(r"[^.]*\b(shall|may)\b[^.]*\.", re.S)
 
 
-async def fake_p1(system: str, user: str, schema, api_key: str = "") -> RawResponse:
+async def fake_p1(system: str, user: str, schema, api_key: str = "", model: str = "") -> RawResponse:
     clauses, obligations = [], []
     for cid, text in _CLAUSE.findall(user):
         clauses.append({"clause_id": cid, "category": "other"})
@@ -60,7 +60,7 @@ _DEMO_P1 = {
 }
 
 
-async def demo_llm(system: str, user: str, schema, api_key: str = "") -> RawResponse:
+async def demo_llm(system: str, user: str, schema, api_key: str = "", model: str = "") -> RawResponse:
     """Scripted P1 + P2 for the synthetic contract, shaped like good model output."""
     if user.startswith("OBLIGATIONS"):
         ids = {line.split(" | ")[2]: line.split(" | ")[0] for line in user.splitlines() if " | " in line}
