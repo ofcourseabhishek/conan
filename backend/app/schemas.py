@@ -83,6 +83,7 @@ class Offset(Out):
 class DeadlineRule(Out):
     kind: DeadlineKind
     raw_text: str | None = None
+    absolute_date_text: str | None = None  # as written in the contract, e.g. "31 March 2027"
     absolute_date: dt.date | None = None  # only if the literal date string is in the verified quote
     offset: Offset | None = None
     direction: Direction | None = None

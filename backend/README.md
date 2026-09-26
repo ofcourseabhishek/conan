@@ -23,7 +23,10 @@ cp .env.example .env          # leave DATABASE_URL empty for local SQLite
   `clause.text.slice(o.evidence_start - clause.char_start, o.evidence_end - clause.char_start)`.
   Regenerate with `scripts/make_fixture.py`.
 - **Live today:** `GET /api/health`, `POST /api/contracts` (multipart `file`), `GET /api/jobs/{id}`,
-  `GET /api/contracts/{id}/analysis?as_of=&reviewed_only=` (clauses only until P1 lands), `DELETE /api/contracts/{id}`.
+  `GET /api/contracts/{id}/analysis?as_of=&reviewed_only=` (clauses, obligations with risk; no events/edges yet),
+  `DELETE /api/contracts/{id}`.
+- A finished job with some failed clauses is `done_with_warnings` with `error_code: "PARTIAL_EXTRACTION"`;
+  those clauses have `extraction_state: "extraction_failed"`.
 - **Errors** are `{error_code, message, action}` (see `app/errors.py`); failed jobs carry `error_code`,
   `error_message`, `error_action`.
 
@@ -41,7 +44,11 @@ cp .env.example .env          # leave DATABASE_URL empty for local SQLite
 | Upload validation, ingest, invisible-span filter, offset map, header/footer strip | `pipeline/ingest.py` | done, tested |
 | Segmentation, parties, glossary | `pipeline/segment.py` | done, tested |
 | Gemini client: token bucket, backoff, `llm_cache`, replay | `pipeline/gemini.py` | done, tested (fake transport) |
-| Job runner, stale-job requeue | `pipeline/runner.py` | stages 1–2 wired |
-| P1 extraction + ladder, verify, dedupe | | H4–7 |
+| Job runner, stale-job requeue | `pipeline/runner.py` | stages 1–4 wired |
+| P1 prompt + repair ladder | `prompts/p1_system.txt`, `pipeline/extract.py` | done, tested (fake transport) |
+| Evidence verifier, derived pages | `pipeline/verify.py` | done, tested |
+| Actor canonicalization, dedupe, IDs | `pipeline/dedupe.py` | done, tested |
+| Risk + propagation (pulled forward from H9) | `pipeline/risk.py` | done, tested; fixture scores match |
+| Eval scorer | `tests/eval_score.py` | done; run #1 needs a live key + B's `fixtures/gold.json` |
 | Dates, events API, completion cascade | | H7–9 |
-| Edges, P2, risk, propagation | | H9–12 |
+| Rule edges, P2, recompute endpoints | | H9–12 |

@@ -119,6 +119,7 @@
       "deadline_rule": {
         "kind": "relative",
         "raw_text": "within ten (10) Business Days of the issuance of such Purchase Order",
+        "absolute_date_text": null,
         "absolute_date": null,
         "offset": {
           "value": 10,
@@ -213,6 +214,7 @@
       "deadline_rule": {
         "kind": "relative",
         "raw_text": "within five (5) Business Days of delivery",
+        "absolute_date_text": null,
         "absolute_date": null,
         "offset": {
           "value": 5,
@@ -316,6 +318,7 @@
       "deadline_rule": {
         "kind": "none",
         "raw_text": "Upon Acceptance",
+        "absolute_date_text": null,
         "absolute_date": null,
         "offset": null,
         "direction": null,
@@ -425,6 +428,7 @@
       "deadline_rule": {
         "kind": "relative",
         "raw_text": "within thirty (30) days of receipt of a valid invoice",
+        "absolute_date_text": null,
         "absolute_date": null,
         "offset": {
           "value": 30,

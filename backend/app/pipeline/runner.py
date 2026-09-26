@@ -19,8 +19,9 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.db import get_engine
 from app.errors import CATALOG, ConanError
-from app.models import Clause, Contract, Job, Page
-from app.pipeline import ingest, segment
+from app.models import Clause, Contract, Job, Obligation, Page
+from app.pipeline import dedupe, extract, ingest, segment
+from app.pipeline.gemini import GeminiClient
 from app.schemas import STAGES
 
 log = logging.getLogger("conan.runner")
@@ -28,6 +29,20 @@ log = logging.getLogger("conan.runner")
 _sem: asyncio.Semaphore | None = None
 _tasks: set[asyncio.Task] = set()  # hold references so tasks aren't garbage-collected mid-run
 _pdf_bytes: dict[uuid.UUID, bytes] = {}  # job_id -> upload, dropped after stage 1
+_client: GeminiClient | None = None
+
+
+def llm_client() -> GeminiClient:
+    """One client per process so the token bucket is shared by every job."""
+    global _client
+    if _client is None:
+        _client = GeminiClient()
+    return _client
+
+
+def set_llm_client(client: GeminiClient | None) -> None:  # tests
+    global _client
+    _client = client
 
 
 def _semaphore() -> asyncio.Semaphore:
@@ -84,13 +99,29 @@ async def run_job(job_id: uuid.UUID) -> None:
                     warnings.append("No numbered headings found; clauses are paragraph windows.")
             # else: a requeued job whose clauses survived the restart resumes from stage 3
 
-            # Stages 3-7 (P1, verify, dates, edges, conflicts) land in H4-15.
+            _enter_stage(job_id, "extract_obligations", f"Reading {n_clauses} clauses with AI")
+            client = llm_client()
+            hits0, misses0 = client.hits, client.misses
+            ex = await _stage_extract(contract_id, client)
+            warnings += ex.warnings
+            log.info("p1 job=%s cache_hits=%d cache_misses=%d", job_id, client.hits - hits0, client.misses - misses0)
+
+            _enter_stage(job_id, "verify_dedupe", "Checking every quote against the PDF")
+            n_obl, n_unverified = await asyncio.to_thread(_stage_verify, contract_id, ex)
+            if n_obl == 0 and not ex.failed:
+                raise ConanError("EMPTY_EXTRACTION")
+            if n_unverified:
+                warnings.append(f"{n_unverified} obligation(s) have evidence that could not be verified.")
+
+            # Stages 5-7 (dates, edges, conflicts) land in H7-15.
 
             final = "done_with_warnings" if warnings else "done"
-            _update_job(job_id, state=final, stage="done", stage_index=len(STAGES) - 1,
-                        progress_pct=100, message=f"Found {n_clauses} clauses", warnings=warnings)
+            _update_job(job_id, state=final, stage="done", stage_index=len(STAGES) - 1, progress_pct=100,
+                        message=f"Found {n_obl} obligations in {n_clauses} clauses", warnings=warnings,
+                        error_code="PARTIAL_EXTRACTION" if ex.failed else None)
             _set_contract_status(contract_id, "ready")
-            log.info("job done job=%s ms=%d clauses=%d", job_id, (time.monotonic() - t0) * 1000, n_clauses)
+            log.info("job done job=%s ms=%d clauses=%d obligations=%d", job_id,
+                     (time.monotonic() - t0) * 1000, n_clauses, n_obl)
         except ConanError as exc:
             log.warning("job failed job=%s code=%s", job_id, exc.code)
             _fail(job_id, exc.code, warnings)
@@ -154,6 +185,47 @@ def _stage_segment(contract_id: uuid.UUID, doc: ingest.IngestResult) -> tuple[in
         s.add(contract)
         s.commit()
     return len(seg.clauses), seg.used_fallback
+
+
+async def _stage_extract(contract_id: uuid.UUID, client: GeminiClient) -> extract.ExtractResult:
+    with Session(get_engine()) as s:
+        contract = s.get(Contract, contract_id)
+        rows = s.exec(select(Clause).where(Clause.contract_id == contract_id).order_by(Clause.char_start)).all()
+        clauses = [extract.ClauseIn(c.id, c.section_ref, c.text) for c in rows]
+        parties, doc_text = list(contract.parties or []), contract.doc_text or ""
+    glossary = segment.extract_glossary(doc_text)  # recomputed: deterministic, so restarts need no state
+    ex = await extract.extract_all(client, clauses, parties, glossary, get_settings().batch_chars)
+    with Session(get_engine()) as s:
+        with_obl = {o.clause_id for o in ex.obligations}
+        for c in s.exec(select(Clause).where(Clause.contract_id == contract_id)).all():
+            if c.id in ex.categories:
+                c.category, c.category_source = ex.categories[c.id], "llm"
+            c.extraction_state = ("extraction_failed" if c.id in ex.failed
+                                  else "ok" if c.id in with_obl else "no_obligations")
+            s.add(c)
+        s.commit()
+    return ex
+
+
+def _stage_verify(contract_id: uuid.UUID, ex: extract.ExtractResult) -> tuple[int, int]:
+    with Session(get_engine()) as s:
+        contract = s.get(Contract, contract_id)
+        clauses = s.exec(select(Clause).where(Clause.contract_id == contract_id)).all()
+        pages = s.exec(select(Page).where(Page.contract_id == contract_id).order_by(Page.page_no)).all()
+        refs = [dedupe.ClauseRef(c.id, c.char_start, c.char_end, c.page_start) for c in clauses]
+        cands = dedupe.verify_all(ex.obligations, refs, contract.doc_text or "",
+                                  [(p.char_start, p.char_end) for p in pages], list(contract.parties or []))
+        rows = dedupe.build_rows(contract_id, dedupe.dedupe(cands), {c.id: c.char_start for c in clauses})
+        s.exec(delete(Obligation).where(Obligation.contract_id == contract_id))
+        s.add_all(rows)
+        # a reassigned quote can give a clause obligations after all
+        with_obl = {r.clause_id for r in rows}
+        for c in clauses:
+            if c.extraction_state == "no_obligations" and c.id in with_obl:
+                c.extraction_state = "ok"
+                s.add(c)
+        s.commit()
+        return len(rows), sum(r.evidence_status != "verified" for r in rows)
 
 
 # ---------------------------------------------------------------- startup recovery

@@ -87,6 +87,7 @@ export interface ContractOut {
 export interface DeadlineRule {
   kind: DeadlineKind;
   raw_text: string | null;
+  absolute_date_text: string | null;
   absolute_date: string | null;
   offset: Offset | null;
   direction: "before" | "after" | null;

@@ -8,11 +8,18 @@ import uuid
 from sqlmodel import Session, select
 
 from app.config import get_settings
-from app.models import Clause, Conflict, Contract, Event, Obligation, ReviewAction
+from app.models import Clause, Conflict, Contract, Edge, Event, Obligation, ReviewAction
+from app.pipeline.risk import edge_propagates, score_all
 from app.pipeline.runner import latest_job
 from app.schemas import (
-    Analysis, ClauseOut, ConflictOut, ContractOut, EventOut, Party, ReviewActionOut, Stats,
+    Analysis, ClauseOut, ConflictOut, ContractOut, EdgeOut, EventOut, ObligationOut, Party, ReviewActionOut, Stats,
 )
+
+NEEDS_REVIEW_BELOW = 0.6
+
+
+def needs_review(o: Obligation) -> bool:
+    return o.review_state == "proposed" and (o.evidence_status != "verified" or o.confidence < NEEDS_REVIEW_BELOW)
 
 
 def resolve_as_of(as_of: dt.date | None) -> dt.date:
@@ -25,15 +32,17 @@ def resolve_as_of(as_of: dt.date | None) -> dt.date:
 def build_analysis(s: Session, contract: Contract, as_of: dt.date, reviewed_only: bool) -> Analysis:
     cid = contract.id
     clauses = s.exec(select(Clause).where(Clause.contract_id == cid).order_by(Clause.char_start)).all()
-    obligations = s.exec(select(Obligation).where(Obligation.contract_id == cid)).all()
+    obligations = s.exec(select(Obligation).where(Obligation.contract_id == cid).order_by(Obligation.id)).all()
+    edges = s.exec(select(Edge).where(Edge.contract_id == cid)).all()
     events = s.exec(select(Event).where(Event.contract_id == cid)).all()
     conflicts = s.exec(select(Conflict).where(Conflict.contract_id == cid)).all()
     actions = s.exec(select(ReviewAction).where(ReviewAction.contract_id == cid).order_by(ReviewAction.at)).all()
 
-    # Obligations, edges and risk are mapped here once P1 (H4-7) and risk (H9-12) land;
-    # until then the payload carries clauses only (enough for CP1).
-    obligation_out: list = []
-    edge_out: list = []
+    risks = score_all(obligations, edges, conflicts, as_of, reviewed_only)
+    obligation_out = [ObligationOut.model_validate({**o.model_dump(), "risk": risks[o.id],
+                                                   "needs_review": needs_review(o)}) for o in obligations]
+    edge_out = [EdgeOut.model_validate({**e.model_dump(), "propagates": edge_propagates(e, reviewed_only)})
+                for e in edges]
 
     with_obl = {o.clause_id for o in obligations}
     job = latest_job(s, cid)
@@ -59,7 +68,7 @@ def build_analysis(s: Session, contract: Contract, as_of: dt.date, reviewed_only
         stats=Stats(
             clauses=len(clauses), obligations=len(obligation_out),
             unresolved_dates=sum(o.resolution_status == "unresolved_trigger" for o in obligations),
-            needs_review=0,
+            needs_review=sum(o.needs_review for o in obligation_out),
             clauses_without_obligations=sum(c.id not in with_obl for c in clauses),
             warnings=warnings,
         ),

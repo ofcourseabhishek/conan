@@ -9,16 +9,22 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.db import get_engine
+from app.config import Settings
 from app.main import app
 from app.models import Contract, Job
 from app.pipeline import runner
+from app.pipeline.gemini import GeminiClient
+from tests.fakes import fake_p1
 from tests.pdfgen import build_blank_pdf, build_pdf
 
 
 @pytest.fixture()
 def client():
+    runner.set_llm_client(GeminiClient(Settings(gemini_rpm=6000, prompt_version=f"api-{uuid.uuid4()}"),
+                                       transport=fake_p1))
     with TestClient(app) as c:
         yield c
+    runner.set_llm_client(None)
 
 
 def wait_job(client, job_id, timeout=10):
@@ -56,6 +62,19 @@ def test_upload_to_clauses(client):
     refs = [c["section_ref"] for c in a["clauses"]]
     assert "6.3" in refs and "Sch. B" in refs
     assert a["stats"]["clauses"] == len(refs) and a["disclaimer"]
+
+    obls = a["obligations"]
+    assert [o["id"] for o in obls] == [f"O-{i:03d}" for i in range(1, len(obls) + 1)]
+    pay = next(o for o in obls if o["evidence_quote"].startswith("Customer shall pay all undisputed"))
+    assert pay["actor"] == "Tarnwick Robotics Pvt. Ltd." and pay["evidence_status"] == "verified"
+    assert pay["page_start"] == 2 and not pay["page_approx"]
+    doc_clause = next(c for c in a["clauses"] if c["id"] == pay["clause_id"])
+    rel = pay["evidence_start"] - doc_clause["char_start"], pay["evidence_end"] - doc_clause["char_start"]
+    assert " ".join(doc_clause["text"][rel[0]:rel[1]].split()) == pay["evidence_quote"]
+    assert pay["risk"]["factors"] == [] and pay["risk"]["band"] == "low"
+    assert a["stats"]["obligations"] == len(obls) and a["stats"]["clauses_without_obligations"] >= 1
+    states = {c["section_ref"]: c["extraction_state"] for c in a["clauses"]}
+    assert states["6.3"] == "ok" and states["1.1"] == "no_obligations"
 
 
 def test_not_pdf_rejected_before_any_work(client):
