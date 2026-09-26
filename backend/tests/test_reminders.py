@@ -15,8 +15,8 @@ def enabled(monkeypatch):
     st = get_settings()
     monkeypatch.setattr(st, "enable_reminders", True)
     monkeypatch.setattr(st, "resend_api_key", "re_test")
-    reminders._per_ip.clear()
-    reminders._per_day.clear()
+    reminders.per_ip.clear()
+    reminders.per_day.clear()
     sent = []
 
     async def fake_send(to, subject, text, html_body):
@@ -67,7 +67,7 @@ def test_html_is_escaped(seeded, enabled):  # noqa: F811
 def test_rate_limits(seeded, enabled, monkeypatch):  # noqa: F811
     client, cid, _ = seeded
     assert [remind(client, cid).status_code for _ in range(4)] == [200, 200, 200, 429]
-    reminders._per_ip.clear()
+    reminders.per_ip.clear()
     monkeypatch.setattr(get_settings(), "reminders_per_day", 3)
     r = remind(client, cid)
     assert r.status_code == 429 and "quota" in r.json()["detail"]

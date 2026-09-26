@@ -11,7 +11,7 @@ from app.config import Settings
 from app.db import get_engine
 from app.main import app
 from app.models import AnalysisCache
-from app.pipeline import runner
+from app.pipeline import runner, snapshot
 from app.pipeline.gemini import GeminiClient, RawResponse
 from tests.fakes import demo_llm
 from tests.pdfgen import build_pdf
@@ -82,7 +82,7 @@ def test_partial_extraction_is_not_cached():
             job = wait_job(client, body["job_id"])
             assert job["state"] == "done_with_warnings" and job["error_code"] == "PARTIAL_EXTRACTION"
             with Session(get_engine()) as s:
-                assert s.get(AnalysisCache, (hashlib.sha256(pdf).hexdigest(), get_settings().pipeline_version)) is None
+                assert s.get(AnalysisCache, (hashlib.sha256(pdf).hexdigest(), snapshot.cache_version())) is None
     finally:
         get_settings().batch_chars = 8000
         runner.set_llm_client(None)

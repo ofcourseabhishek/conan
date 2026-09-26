@@ -24,10 +24,15 @@ _STEMS = {"pay": "pay", "paid": "pay", "payment": "pay", "pays": "pay", "remit":
           "notify": "notify", "notice": "notify", "give": "notify",
           "terminate": "terminate", "termination": "terminate", "renew": "renew", "renewal": "renew",
           "inspect": "inspect", "inspection": "inspect", "submit": "submit", "provide": "submit"}
-_WORDNUM = {"one": 1, "two": 2, "three": 3, "five": 5, "seven": 7, "ten": 10, "fifteen": 15, "twenty": 20,
-            "thirty": 30, "forty-five": 45, "forty five": 45, "sixty": 60, "ninety": 90, "hundred twenty": 120}
+_WORDNUM = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+            "ten": 10, "fourteen": 14, "fifteen": 15, "twenty": 20, "twenty-one": 21, "twenty one": 21,
+            "thirty": 30, "forty-five": 45, "forty five": 45, "sixty": 60, "ninety": 90,
+            "one hundred twenty": 120, "one hundred and twenty": 120, "hundred twenty": 120,
+            "one hundred eighty": 180, "one hundred and eighty": 180}
+# Longest number words first, bounded, so a preceding word ("upon sixty") is never swallowed into the number.
+_NUMWORDS = "|".join(re.escape(w).replace(r"\ ", r"\s+") for w in sorted(_WORDNUM, key=len, reverse=True))
 _NOTICE = re.compile(
-    r"(?P<num>\d+|[a-z]+(?:[- ][a-z]+)?)\s*(?:\(\s*(?P<paren>\d+)\s*\))?\s*(?P<biz>business\s+)?days?['’]?\s+"
+    r"\b(?P<num>\d+|" + _NUMWORDS + r")\s*(?:\(\s*(?P<paren>\d+)\s*\))?\s*(?P<biz>business\s+)?days?['’]?\s+"
     r"(?:prior\s+|advance\s+)?(?:written\s+)?notice", re.I)
 
 
@@ -115,7 +120,7 @@ def rule_conflicts(contract_id: uuid.UUID, obligations, clauses) -> list[Conflic
 def _notice_days(m: re.Match) -> int | None:
     if m.group("paren"):
         return int(m.group("paren"))
-    n = m.group("num").lower()
+    n = " ".join(m.group("num").lower().split())
     return int(n) if n.isdigit() else _WORDNUM.get(n)
 
 

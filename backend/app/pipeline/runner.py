@@ -30,7 +30,13 @@ log = logging.getLogger("conan.runner")
 _sem: asyncio.Semaphore | None = None
 _tasks: set[asyncio.Task] = set()  # hold references so tasks aren't garbage-collected mid-run
 _pdf_bytes: dict[uuid.UUID, bytes] = {}  # job_id -> upload, dropped after stage 1
+_owned: set[uuid.UUID] = set()  # jobs this process is running or queueing: never reclaimed by our own sweep
 _client: GeminiClient | None = None
+
+HEARTBEAT_S = 30  # a live job touches updated_at this often, so it never looks stale to another instance
+STALE_AFTER = dt.timedelta(minutes=2)
+SWEEP_S = 60
+SAMPLE_TTL = dt.timedelta(hours=24)
 
 
 def llm_client() -> GeminiClient:
@@ -56,10 +62,38 @@ def _semaphore() -> asyncio.Semaphore:
 def start_job(job_id: uuid.UUID, pdf: bytes | None = None) -> asyncio.Task:
     if pdf is not None:
         _pdf_bytes[job_id] = pdf
-    task = asyncio.create_task(run_job(job_id))
+    _owned.add(job_id)
+    task = asyncio.create_task(_run_with_heartbeat(job_id))
     _tasks.add(task)
     task.add_done_callback(_tasks.discard)
     return task
+
+
+async def _run_with_heartbeat(job_id: uuid.UUID) -> None:
+    beat = asyncio.create_task(_heartbeat(job_id))
+    try:
+        await run_job(job_id)
+    finally:
+        beat.cancel()
+        _owned.discard(job_id)
+
+
+async def _heartbeat(job_id: uuid.UUID) -> None:
+    """Keeps updated_at fresh while queued or running (one P1 call alone can exceed STALE_AFTER when
+    Gemini is overloaded), so a second instance during a deploy never re-runs a live job."""
+    while True:
+        await asyncio.sleep(HEARTBEAT_S)
+        try:
+            await asyncio.to_thread(_touch, job_id)
+        except Exception:  # a missed beat only risks a (memoized, cheap) re-run
+            log.warning("heartbeat failed job=%s", job_id)
+
+
+def _touch(job_id: uuid.UUID) -> None:
+    with Session(get_engine()) as s:
+        s.exec(update(Job).where(Job.id == job_id, Job.state.in_(("queued", "running")))
+               .values(updated_at=dt.datetime.now(dt.timezone.utc)))
+        s.commit()
 
 
 def _update_job(job_id: uuid.UUID, **fields) -> None:
@@ -289,12 +323,15 @@ def _stage_dates(contract_id: uuid.UUID) -> None:
 
 
 def requeue_stale_jobs() -> list[uuid.UUID]:
-    """Claim jobs stuck in running for > 2 minutes (TRD §10). After 3 attempts they fail."""
-    cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=2)
+    """Claim jobs whose heartbeat stopped > 2 minutes ago (TRD §10): their process died. The atomic
+    UPDATE ... RETURNING means only one instance claims each job. After 3 attempts they fail."""
+    cutoff = dt.datetime.now(dt.timezone.utc) - STALE_AFTER
     stmt = (update(Job)
             .where(Job.state.in_(("running", "queued")), Job.updated_at < cutoff)
             .values(attempts=Job.attempts + 1, state="queued")
             .returning(Job.id, Job.attempts))
+    if _owned:
+        stmt = stmt.where(Job.id.not_in(list(_owned)))
     with Session(get_engine()) as s:
         rows = s.exec(stmt).all()
         s.commit()
@@ -305,6 +342,29 @@ def requeue_stale_jobs() -> list[uuid.UUID]:
         else:
             requeue.append(job_id)
     return requeue
+
+
+def delete_old_samples() -> int:
+    """'Try sample' makes a fresh copy per click; drop copies older than a day so they can't pile up."""
+    cutoff = dt.datetime.now(dt.timezone.utc) - SAMPLE_TTL
+    with Session(get_engine()) as s:
+        n = s.exec(delete(Contract).where(Contract.is_sample, Contract.created_at < cutoff)).rowcount
+        s.commit()
+    return n or 0
+
+
+async def sweeper() -> None:
+    """Background loop: restart-recovery on boot and every minute after, plus sample cleanup."""
+    while True:
+        try:
+            for job_id in await asyncio.to_thread(requeue_stale_jobs):
+                log.info("requeued stale job=%s", job_id)
+                start_job(job_id)
+            if n := await asyncio.to_thread(delete_old_samples):
+                log.info("deleted %d old sample copies", n)
+        except Exception:
+            log.exception("sweep failed")
+        await asyncio.sleep(SWEEP_S)
 
 
 def latest_job(session: Session, contract_id: uuid.UUID) -> Job | None:

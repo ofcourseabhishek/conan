@@ -31,3 +31,12 @@ def _isolated_analysis_cache():
     s.pipeline_version = f"test-{uuid.uuid4().hex[:8]}"
     yield
     s.pipeline_version = old
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """Rate limiters are process-global; tests all come from one client IP."""
+    from app.api import contracts, reminders
+    for limiter in (contracts.uploads, contracts.samples, reminders.per_ip, reminders.per_day):
+        limiter.clear()
+    yield

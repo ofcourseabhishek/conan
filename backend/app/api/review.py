@@ -96,7 +96,11 @@ def set_obligation_status(obligation_id: str, body: ObligationStatusRequest, con
     if body.status == "done":
         occurred = body.occurred_on or resolve_as_of(as_of)
         o.status, o.completed_on = "done", occurred
-        if ev is not None:  # completion cascade: this obligation's event now has a date
+        other_completion = (ev is not None and ev.date_source == "completion"
+                            and ev.source_obligation_id not in (None, o.id))
+        if ev is not None and o.review_state != "rejected" and not other_completion:
+            # completion cascade: this obligation's event now has a date. A rejected (not real) duty never
+            # re-dates real ones, and a date set by another obligation's completion is not overwritten.
             _audit(s, contract_id, "event", ev.key, "completion",
                    {"date": _jsonable(ev.date), "date_source": ev.date_source},
                    {"date": occurred.isoformat(), "date_source": "completion"})

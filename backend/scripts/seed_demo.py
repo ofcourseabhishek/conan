@@ -23,7 +23,7 @@ from sqlmodel import Session  # noqa: E402
 from app.api.contracts import SAMPLE_NAME, SAMPLE_PDF  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.db import get_engine, init_db  # noqa: E402
-from app.models import AnalysisCache, Contract, Job  # noqa: E402
+from app.models import Contract, Job  # noqa: E402
 from app.pipeline import runner, snapshot  # noqa: E402
 
 
@@ -33,12 +33,12 @@ async def main(force: bool) -> int:
     data = SAMPLE_PDF.read_bytes()
     sha = hashlib.sha256(data).hexdigest()
     with Session(get_engine()) as s:
-        row = snapshot.lookup(s, sha, st.pipeline_version)
+        row = snapshot.lookup(s, sha)
         if row and not force:
-            print(f"Already cached ({st.pipeline_version}, {row.created_at:%Y-%m-%d %H:%M} UTC). Use --force to re-run.")
+            print(f"Already cached ({row.pipeline_version}, {row.created_at:%Y-%m-%d %H:%M} UTC). Use --force to re-run.")
             return 0
         if row:
-            s.delete(s.get(AnalysisCache, (sha, st.pipeline_version)))
+            s.delete(row)
         contract = Contract(name=SAMPLE_NAME, filename="demo_contract.pdf", sha256=sha,
                             pipeline_version=st.pipeline_version, is_sample=True)
         s.add(contract)
@@ -53,7 +53,7 @@ async def main(force: bool) -> int:
     await runner.start_job(job_id, data)
     with Session(get_engine()) as s:
         job = s.get(Job, job_id)
-        cached = snapshot.lookup(s, sha, st.pipeline_version) is not None
+        cached = snapshot.lookup(s, sha) is not None
     print(f"{job.state} in {time.monotonic() - t0:.0f}s: {job.message}")
     for w in job.warnings:
         print("  warning:", w)

@@ -1,10 +1,7 @@
 import datetime as dt
 import hashlib
 import re
-import time
 import uuid
-from collections import defaultdict, deque
-
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
@@ -12,6 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
 from app.api.assemble import build_analysis, get_contract_or_404, resolve_as_of
+from app.api.ratelimit import SlidingWindow, client_ip
 from app.config import get_settings
 from app.db import get_session
 from app.errors import ConanError
@@ -22,19 +20,15 @@ from app.schemas import Analysis, UploadResponse
 
 router = APIRouter(prefix="/api")
 
-UPLOADS_PER_HOUR = 10
-_uploads: dict[str, deque] = defaultdict(deque)
 CHUNK = 256 * 1024
+uploads = SlidingWindow(limit=10, window_s=3600)  # per client IP
+samples = SlidingWindow(limit=30, window_s=3600)  # per client IP: each click clones ~30 rows
 
 
-def _allow_upload(ip: str) -> bool:
-    q, now = _uploads[ip], time.monotonic()
-    while q and now - q[0] > 3600:
-        q.popleft()
-    if len(q) >= UPLOADS_PER_HOUR:
-        return False
-    q.append(now)
-    return True
+def _too_many(what: str) -> JSONResponse:
+    return JSONResponse(status_code=429, content={
+        "error_code": "INTERNAL", "message": f"Too many {what} from this address.",
+        "action": "Wait a while and try again."})
 
 
 def _display_name(filename: str | None) -> str:
@@ -54,7 +48,7 @@ def _start_or_clone(s: Session, data: bytes, response: Response, *, name: str, f
     otherwise queue a job (202). Cached results are labelled via contract.cached_at."""
     st = get_settings()
     sha = hashlib.sha256(data).hexdigest()
-    if cached := snapshot.lookup(s, sha, st.pipeline_version):
+    if cached := snapshot.lookup(s, sha):
         contract, job = snapshot.clone(s, cached, name=name, is_sample=is_sample)
         s.commit()
         response.status_code = 200
@@ -71,8 +65,10 @@ def _start_or_clone(s: Session, data: bytes, response: Response, *, name: str, f
 
 
 @router.post("/contracts/sample", response_model=UploadResponse, status_code=202)
-async def sample_contract(response: Response, s: Session = Depends(get_session)) -> UploadResponse:
+async def sample_contract(request: Request, response: Response, s: Session = Depends(get_session)):
     """'Try sample contract': a fresh copy of the bundled demo contract, from the cache when warm."""
+    if not samples.allow(client_ip(request)):
+        return _too_many("sample requests")
     if not SAMPLE_PDF.exists():
         raise HTTPException(status_code=404, detail="Sample contract not bundled")
     return _start_or_clone(s, SAMPLE_PDF.read_bytes(), response, name=SAMPLE_NAME,
@@ -83,11 +79,8 @@ async def sample_contract(response: Response, s: Session = Depends(get_session))
 async def upload_contract(request: Request, file: UploadFile, response: Response,
                           s: Session = Depends(get_session)):
     st = get_settings()
-    ip = request.client.host if request.client else "unknown"
-    if not _allow_upload(ip):
-        return JSONResponse(status_code=429, content={
-            "error_code": "INTERNAL", "message": "Too many uploads from this address.",
-            "action": "Wait a while, or try the sample contract."})
+    if not uploads.allow(client_ip(request)):
+        return _too_many("uploads")
 
     # Stream with a cap: never buffer more than max_upload_bytes + 1 chunk.
     buf, size = bytearray(), 0

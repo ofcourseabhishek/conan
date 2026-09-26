@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -20,9 +21,9 @@ for noisy in ("google_genai", "google.genai", "httpx", "httpcore"):
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
-    for job_id in runner.requeue_stale_jobs():  # restart recovery; memoized LLM calls make re-runs cheap
-        runner.start_job(job_id)
+    sweep = asyncio.create_task(runner.sweeper())  # restart recovery + sample cleanup, now and every minute
     yield
+    sweep.cancel()
 
 
 settings = get_settings()

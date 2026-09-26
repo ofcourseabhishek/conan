@@ -7,7 +7,6 @@ dropped here, which closes the hidden-text prompt-injection route.
 
 from __future__ import annotations
 
-import bisect
 import re
 import time
 from collections import Counter
@@ -16,6 +15,7 @@ from dataclasses import dataclass, field
 import pymupdf as fitz
 
 from app.errors import ConanError
+from app.pipeline import verify
 
 MAGIC = b"%PDF-"
 HEADER_FOOTER_BAND = 0.08  # top/bottom 8% of page height
@@ -50,8 +50,7 @@ class IngestResult:
     warnings: list[str] = field(default_factory=list)
 
     def page_of(self, offset: int) -> int:
-        starts = [s for s, _ in self.page_offsets]
-        return max(1, bisect.bisect_right(starts, offset))
+        return verify.page_of(self.page_offsets, offset)
 
 
 def check_bytes(data: bytes, max_bytes: int) -> None:

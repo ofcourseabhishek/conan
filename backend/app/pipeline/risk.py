@@ -73,8 +73,8 @@ def _impacts(obls: dict, edges: list, as_of: dt.date, reviewed_only: bool) -> di
                 continue
             for e in out_edges[node]:
                 nxt = e.downstream_id
-                if nxt in seen:
-                    continue
+                if nxt in seen or not is_active(obls[nxt]):
+                    continue  # a done, waived or rejected obligation breaks the chain
                 p = prod * W[e.relation]
                 hop = len(path) + 1
                 val = BASE * s * p * HOP_DECAY ** (hop - 1)

@@ -10,11 +10,15 @@ marking something blocked never changes another viewer's copy.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import uuid
 
 from sqlmodel import Session, select
 
+from app.config import get_settings
 from app.models import AnalysisCache, Clause, Conflict, Contract, Edge, Event, Job, Obligation, Page
+from app.pipeline.edges import P2_SYSTEM
+from app.pipeline.extract import P1_SYSTEM
 from app.schemas import STAGES
 
 _CHILDREN = {"pages": Page, "clauses": Clause, "obligations": Obligation, "edges": Edge, "events": Event,
@@ -38,19 +42,30 @@ def take(s: Session, contract_id: uuid.UUID) -> dict:
     return snap
 
 
+def cache_version() -> str:
+    """analysis_cache key component: PIPELINE_VERSION plus a hash of what shapes extraction, so a prompt
+    change retires stale cached analyses without anyone remembering to bump the version. The model chain
+    is deliberately left out: it may differ between a laptop and Render, and a seed run on one must still
+    warm the other."""
+    st = get_settings()
+    h = hashlib.sha256("\x1f".join((P1_SYSTEM, P2_SYSTEM, st.prompt_version)).encode()).hexdigest()[:10]
+    return f"{st.pipeline_version}+{h}"
+
+
 def save(s: Session, contract_id: uuid.UUID) -> None:
     c = s.get(Contract, contract_id)
-    row = s.get(AnalysisCache, (c.sha256, c.pipeline_version))
+    version = cache_version()
+    row = s.get(AnalysisCache, (c.sha256, version))
     snap = take(s, contract_id)
     if row is None:
-        s.add(AnalysisCache(sha256=c.sha256, pipeline_version=c.pipeline_version, snapshot=snap))
+        s.add(AnalysisCache(sha256=c.sha256, pipeline_version=version, snapshot=snap))
     else:
         row.snapshot, row.created_at = snap, dt.datetime.now(dt.timezone.utc)
         s.add(row)
 
 
-def lookup(s: Session, sha256: str, pipeline_version: str) -> AnalysisCache | None:
-    return s.get(AnalysisCache, (sha256, pipeline_version))
+def lookup(s: Session, sha256: str) -> AnalysisCache | None:
+    return s.get(AnalysisCache, (sha256, cache_version()))
 
 
 def clone(s: Session, cached: AnalysisCache, *, name: str | None = None, is_sample: bool = False) -> tuple[Contract, Job]:

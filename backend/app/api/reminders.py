@@ -11,15 +11,14 @@ import datetime as dt
 import html
 import logging
 import re
-import time
 import uuid
-from collections import defaultdict, deque
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session
 
 from app.api.assemble import build_analysis, get_contract_or_404, resolve_as_of
+from app.api.ratelimit import SlidingWindow, client_ip
 from app.config import get_settings
 from app.db import get_session
 from app.schemas import DISCLAIMER, RemindRequest, RemindResponse
@@ -31,24 +30,19 @@ RESEND_URL = "https://api.resend.com/emails"
 # One plain address: no spaces, commas, angle brackets, quotes or line breaks (header/recipient injection).
 _EMAIL = re.compile(r"^[A-Za-z0-9._%+\-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?"
                     r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)+$")
-_per_ip: dict[str, deque] = defaultdict(deque)
-_per_day: deque = deque()
+per_ip = SlidingWindow(limit=3, window_s=3600)
+per_day = SlidingWindow(limit=20, window_s=86400)  # global: protects the free-tier quota
 
 
 def _allow(ip: str) -> str | None:
     """Returns a refusal message, or None if this send is allowed (and records it)."""
-    st, now = get_settings(), time.monotonic()
-    q = _per_ip[ip]
-    while q and now - q[0] > 3600:
-        q.popleft()
-    while _per_day and now - _per_day[0] > 86400:
-        _per_day.popleft()
-    if len(q) >= st.reminders_per_ip_hour:
+    st = get_settings()
+    if per_ip.full(ip, st.reminders_per_ip_hour):
         return f"Limit reached: {st.reminders_per_ip_hour} test reminders per hour."
-    if len(_per_day) >= st.reminders_per_day:
+    if per_day.full(limit=st.reminders_per_day):
         return "Today's test-reminder quota is used up."
-    q.append(now)
-    _per_day.append(now)
+    per_ip.hit(ip)
+    per_day.hit()
     return None
 
 
@@ -102,7 +96,7 @@ async def remind(obligation_id: str, body: RemindRequest, contract_id: uuid.UUID
     o = next((x for x in a.obligations if x.id == obligation_id), None)
     if o is None:
         raise HTTPException(status_code=404, detail="Obligation not found")
-    if refusal := _allow(request.client.host if request.client else "unknown"):
+    if refusal := _allow(client_ip(request)):
         raise HTTPException(status_code=429, detail=refusal)
     section = next((c.section_ref or c.id for c in a.clauses if c.id == o.clause_id), "?")
     subject, text, html_body = compose(contract.name, o, section)
