@@ -20,7 +20,7 @@ from app import schemas  # noqa: E402
 ROOTS = [
     schemas.Analysis, schemas.JobOut, schemas.UploadResponse, schemas.ObligationReviewRequest,
     schemas.ObligationStatusRequest, schemas.EdgeReviewRequest, schemas.EventDateRequest,
-    schemas.RemindRequest, schemas.ApiError, schemas.Health,
+    schemas.RemindRequest, schemas.ApiError, schemas.Health, schemas.ConflictReviewRequest,
 ]
 ALIASES = {  # Literal aliases worth naming on the TS side too
     "EventKey": schemas.EventKey, "Category": schemas.Category, "Modality": schemas.Modality,

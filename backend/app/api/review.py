@@ -12,11 +12,12 @@ from sqlmodel import Session
 
 from app.api.assemble import build_analysis, get_contract_or_404, resolve_as_of
 from app.db import get_session
-from app.models import Edge, Event, Obligation, ReviewAction
+from app.models import Conflict, Edge, Event, Obligation, ReviewAction
 from app.pipeline.recompute import recompute, refresh_rules
 from app.pipeline.temporal import event_key
 from app.schemas import (
-    Analysis, EdgeReviewRequest, EventDateRequest, ObligationReviewRequest, ObligationStatusRequest,
+    Analysis, ConflictReviewRequest, EdgeReviewRequest, EventDateRequest, ObligationReviewRequest,
+    ObligationStatusRequest,
 )
 
 router = APIRouter(prefix="/api")
@@ -126,6 +127,19 @@ def review_edge(edge_id: uuid.UUID, body: EdgeReviewRequest, as_of: dt.date | No
     _audit(s, e.contract_id, "edge", e.id, body.action, {"status": before}, {"status": e.status}, body.note)
     s.add(e)
     return _finish(s, e.contract_id, as_of, reviewed_only)
+
+
+@router.patch("/conflicts/{conflict_id}", response_model=Analysis)
+def review_conflict(conflict_id: uuid.UUID, body: ConflictReviewRequest, as_of: dt.date | None = None,
+                    reviewed_only: bool = False, s: Session = Depends(get_session)) -> Analysis:
+    c = s.get(Conflict, conflict_id)
+    if c is None:
+        raise HTTPException(status_code=404, detail="Conflict not found")
+    before = c.status
+    c.status = "dismissed" if body.action == "dismiss" else "open"
+    _audit(s, c.contract_id, "conflict", c.id, body.action, {"status": before}, {"status": c.status}, body.note)
+    s.add(c)
+    return _finish(s, c.contract_id, as_of, reviewed_only)
 
 
 @router.put("/contracts/{contract_id}/events/{key}", response_model=Analysis)

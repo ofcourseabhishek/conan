@@ -72,6 +72,11 @@ export interface ConflictOut {
   status: "open" | "dismissed";
 }
 
+export interface ConflictReviewRequest {
+  action: "dismiss" | "reopen";
+  note?: string | null;
+}
+
 export interface ContractOut {
   id: string;
   name: string;
@@ -246,7 +251,7 @@ export interface RemindRequest {
 
 export interface ReviewActionOut {
   id: number;
-  target_type: "obligation" | "edge" | "event";
+  target_type: "obligation" | "edge" | "event" | "conflict";
   target_id: string;
   action: string;
   before: Record<string, unknown> | null;

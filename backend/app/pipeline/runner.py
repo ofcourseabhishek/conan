@@ -19,8 +19,8 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.db import get_engine
 from app.errors import CATALOG, ConanError
-from app.models import Clause, Contract, Edge, Job, Obligation, Page
-from app.pipeline import dedupe, edges, extract, ingest, segment
+from app.models import Clause, Conflict, Contract, Edge, Job, Obligation, Page
+from app.pipeline import conflicts, dedupe, edges, extract, ingest, segment
 from app.pipeline.gemini import GeminiClient
 from app.pipeline.recompute import recompute
 from app.schemas import STAGES
@@ -118,9 +118,11 @@ async def run_job(job_id: uuid.UUID) -> None:
             await asyncio.to_thread(_stage_dates, contract_id)
 
             _enter_stage(job_id, "edges", "Linking obligations")
-            warnings += await _stage_edges(contract_id, client)
+            edge_warnings, llm_conflicts = await _stage_edges(contract_id, client)
+            warnings += edge_warnings
 
-            # Stage 7 (conflicts) lands in H13-15.
+            _enter_stage(job_id, "conflicts", "Looking for inconsistent terms")
+            await asyncio.to_thread(_stage_conflicts, contract_id, llm_conflicts)
 
             final = "done_with_warnings" if warnings else "done"
             _update_job(job_id, state=final, stage="done", stage_index=len(STAGES) - 1, progress_pct=100,
@@ -235,7 +237,7 @@ def _stage_verify(contract_id: uuid.UUID, ex: extract.ExtractResult) -> tuple[in
         return len(rows), sum(r.evidence_status != "verified" for r in rows)
 
 
-async def _stage_edges(contract_id: uuid.UUID, client: GeminiClient) -> list[str]:
+async def _stage_edges(contract_id: uuid.UUID, client: GeminiClient) -> tuple[list[str], list]:
     with Session(get_engine()) as s:
         contract = s.get(Contract, contract_id)
         obligations = s.exec(select(Obligation).where(Obligation.contract_id == contract_id)).all()
@@ -250,7 +252,20 @@ async def _stage_edges(contract_id: uuid.UUID, client: GeminiClient) -> list[str
         s.exec(delete(Edge).where(Edge.contract_id == contract_id))
         s.add_all(res.edges)
         s.commit()
-    return res.warnings
+    return res.warnings, res.llm_conflicts
+
+
+def _stage_conflicts(contract_id: uuid.UUID, llm_proposals) -> None:
+    with Session(get_engine()) as s:
+        s.exec(delete(Conflict).where(Conflict.contract_id == contract_id))
+        recompute(s, contract_id)  # dates + rule conflicts
+        if get_settings().enable_llm_conflicts and llm_proposals:
+            contract = s.get(Contract, contract_id)
+            obligations = s.exec(select(Obligation).where(Obligation.contract_id == contract_id)).all()
+            pages = s.exec(select(Page).where(Page.contract_id == contract_id).order_by(Page.page_no)).all()
+            s.add_all(conflicts.llm_conflicts(contract_id, llm_proposals, obligations, contract.doc_text or "",
+                                              [(p.char_start, p.char_end) for p in pages]))
+        s.commit()
 
 
 def _stage_dates(contract_id: uuid.UUID) -> None:

@@ -8,7 +8,8 @@ import uuid
 
 from sqlmodel import Session, select
 
-from app.models import Clause, Edge, Event, Obligation, Page
+from app.models import Clause, Conflict, Edge, Event, Obligation, Page
+from app.pipeline.conflicts import merge_rule_conflicts, rule_conflicts
 from app.pipeline.edges import refresh_rule_edges, rule_edges
 from app.pipeline.temporal import EventDate, event_key, event_label, resolve
 
@@ -43,6 +44,20 @@ def recompute(s: Session, contract_id: uuid.UUID) -> None:
         o.date_provenance = r.provenance
         o.next_occurrences = [d.isoformat() for d in r.next_occurrences]
         s.add(o)
+    s.flush()
+    refresh_conflicts(s, contract_id, obligations)
+
+
+def refresh_conflicts(s: Session, contract_id: uuid.UUID, obligations: list[Obligation] | None = None) -> None:
+    """Rule conflicts are a pure function of the obligations; re-derive them, keeping 'dismissed'."""
+    if obligations is None:
+        obligations = s.exec(select(Obligation).where(Obligation.contract_id == contract_id)).all()
+    clauses = s.exec(select(Clause).where(Clause.contract_id == contract_id)).all()
+    existing = s.exec(select(Conflict).where(Conflict.contract_id == contract_id)).all()
+    to_add, to_delete = merge_rule_conflicts(existing, rule_conflicts(contract_id, obligations, clauses))
+    for c in to_delete:
+        s.delete(c)
+    s.add_all(to_add)
     s.flush()
 
 

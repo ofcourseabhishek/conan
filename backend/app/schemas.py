@@ -231,7 +231,7 @@ class ConflictOut(Out):
 
 class ReviewActionOut(Out):
     id: int
-    target_type: Literal["obligation", "edge", "event"]
+    target_type: Literal["obligation", "edge", "event", "conflict"]
     target_id: str
     action: str
     before: dict | None
@@ -314,6 +314,11 @@ class ObligationStatusRequest(BaseModel):
 
 class EdgeReviewRequest(BaseModel):
     action: Literal["confirm", "reject"]
+    note: str | None = Field(default=None, max_length=500)
+
+
+class ConflictReviewRequest(BaseModel):
+    action: Literal["dismiss", "reopen"]
     note: str | None = Field(default=None, max_length=500)
 
 
