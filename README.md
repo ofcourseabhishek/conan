@@ -300,7 +300,7 @@ conan/
 │                                # GraphView, Timeline, EventsPanel, ConflictsPanel, …
 │
 ├── docs/                        # PRD, TRD, App Flow
-├── .council/                    # Engineering council record (design decisions)
+├── LICENSE                      # MIT
 └── README.md                    # This file
 ```
 
@@ -404,7 +404,6 @@ It is a prioritization aid, not a probability of breach.
 | [PRD.md](./docs/PRD.md) | Product requirements: problem, users, scope, acceptance criteria, metrics |
 | [TRD.md](./docs/TRD.md) | Technical requirements: architecture, data model, API, prompts, algorithms, plan |
 | [App-Flow.md](./docs/App-Flow.md) | Screens, user flows, demo flow, states, and copy |
-| [Council decision](./.council/2026-09-26-conan-plan/40-decision.md) | Why the architecture looks the way it does (multi-model engineering council) |
 
 ---
 

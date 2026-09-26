@@ -6,7 +6,7 @@
 | **Context** | 24-hour hackathon, 2-person team, live 3-minute demo to judges |
 | **Status** | Approved with conditions by the engineering council, 26 Sep 2026 |
 | **Owners** | Person A (backend + AI), Person B (frontend + demo) |
-| **Related** | [TRD.md](TRD.md) · [App-Flow.md](App-Flow.md) · [Council decision record](../.council/2026-09-26-conan-plan/40-decision.md) |
+| **Related** | [TRD.md](TRD.md) · [App-Flow.md](App-Flow.md) |
 
 > Conan supports contract review and operational tracking. It does **not** give legal advice, judge enforceability, or decide which conflicting clause prevails.
 

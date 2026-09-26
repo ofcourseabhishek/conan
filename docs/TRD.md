@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Approved with conditions (engineering council, 26 Sep 2026) |
 | **Scope** | 24-hour hackathon build: MVP + D1 (propagation) + D2 (conflicts) + stretch |
-| **Related** | [PRD.md](PRD.md) · [App-Flow.md](App-Flow.md) · [Decision record](../.council/2026-09-26-conan-plan/40-decision.md) |
+| **Related** | [PRD.md](PRD.md) · [App-Flow.md](App-Flow.md) |
 
 ---
 
