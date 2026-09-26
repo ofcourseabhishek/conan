@@ -29,8 +29,8 @@ services:
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false
-      - key: ENABLE_REMINDERS
-        value: "false"
+      - key: ENABLE_REMINDERS  # set in the dashboard; unset means off (a fixed value here would reset it on sync)
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: BATCH_CHARS
