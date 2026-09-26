@@ -123,7 +123,7 @@ def _client(transport):
 async def test_build_edges_merges_llm_with_rules_rule_wins():
     doc, clauses, pages = _doc()
 
-    async def p2(system, user, schema):
+    async def p2(system, user, schema, api_key=""):
         assert "O-001 | Velloran Components LLP | act" in user and "<snippet" in user
         return RawResponse(json.dumps({"edges": [
             {"upstream_id": "O-001", "downstream_id": "O-002", "relation": "must_precede", "clause_id": "C05",
@@ -144,7 +144,7 @@ async def test_build_edges_merges_llm_with_rules_rule_wins():
 async def test_p2_failure_falls_back_to_rule_edges():
     doc, clauses, pages = _doc()
 
-    async def down(system, user, schema):
+    async def down(system, user, schema, api_key=""):
         raise LLMUnavailable("503")
 
     res = await build_edges(CID, OBLS, clauses, doc, pages, _client(down), enable_llm=True)

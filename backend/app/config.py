@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./conan.db"
 
     gemini_api_key: str | None = None
+    gemini_api_keys: str | None = None  # comma-separated extra keys, used together with gemini_api_key
     gemini_model: str = "gemini-2.5-flash"  # confirm at H0 against the quota page
     gemini_rpm: int = 10
     gemini_concurrency: int = 2
@@ -47,6 +48,12 @@ class Settings(BaseSettings):
             if v.startswith(prefix):
                 return "postgresql+psycopg://" + v[len(prefix):]
         return v
+
+    @property
+    def api_keys(self) -> list[str]:
+        """All configured Gemini keys, de-duplicated, GEMINI_API_KEY first."""
+        raw = [self.gemini_api_key or ""] + (self.gemini_api_keys or "").split(",")
+        return list(dict.fromkeys(k.strip() for k in raw if k and k.strip()))
 
     @property
     def origins(self) -> list[str]:

@@ -39,6 +39,20 @@ cp .env.example .env          # leave DATABASE_URL empty for local SQLite
 - **Errors** are `{error_code, message, action}` (see `app/errors.py`); failed jobs carry `error_code`,
   `error_message`, `error_action`.
 
+## Multiple Gemini keys
+
+Set `GEMINI_API_KEY` and optionally `GEMINI_API_KEYS=key2,key3` (comma-separated; duplicates ignored). All keys
+are used together:
+- each key has its own `GEMINI_RPM` limiter, so throughput scales with the number of keys;
+- a per-minute 429 cools that key down and the call moves straight to another key;
+- a daily-quota 429 parks that key until Gemini's reset (midnight Pacific) and the rest carry on;
+- only when every key is out for the day does a job fail with `LLM_QUOTA`.
+Cached responses are shared across keys. Keys are never logged (logs say `api_key=#2`); `/api/health` reports
+`llm_keys_total` / `llm_keys_available` only. `scripts/gemini_smoke.py` checks every key.
+
+Note: keys from the same Google Cloud project share that project's quota, so extra keys only add capacity if they
+come from different projects.
+
 ## H0 checks (council conditions)
 
 1. Put your key in `backend/.env`, then `.venv/Scripts/python scripts/gemini_smoke.py` confirms the model id and the

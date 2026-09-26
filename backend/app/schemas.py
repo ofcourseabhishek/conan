@@ -336,3 +336,5 @@ class Health(Out):
     db: bool
     pipeline_version: str
     llm_mode: str
+    llm_keys_total: int  # configured Gemini keys (never the keys themselves)
+    llm_keys_available: int  # keys not parked for the day by a daily-quota 429

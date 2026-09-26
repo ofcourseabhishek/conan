@@ -41,4 +41,7 @@ app.include_router(review.router)
 
 @app.get("/api/health", response_model=Health)
 def health() -> Health:
-    return Health(ok=True, db=ping(), pipeline_version=settings.pipeline_version, llm_mode=settings.llm_mode)
+    pool = runner.llm_client().pool
+    total = len(settings.api_keys)
+    return Health(ok=True, db=ping(), pipeline_version=settings.pipeline_version, llm_mode=settings.llm_mode,
+                  llm_keys_total=total, llm_keys_available=pool.available() if total else 0)

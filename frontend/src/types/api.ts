@@ -135,6 +135,8 @@ export interface Health {
   db: boolean;
   pipeline_version: string;
   llm_mode: string;
+  llm_keys_total: number;
+  llm_keys_available: number;
 }
 
 export interface JobOut {

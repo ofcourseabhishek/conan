@@ -2,7 +2,7 @@
 is accepted, and rough latency. Uses one real API call. Does not touch the database.
 
   cd backend
-  set GEMINI_API_KEY in backend/.env (never commit it), then:
+  set GEMINI_API_KEY (and optionally GEMINI_API_KEYS=k2,k3) in backend/.env (never commit it), then:
   .venv/Scripts/python scripts/gemini_smoke.py [model-id]
 
 Then read the RPM/RPD for that model off https://aistudio.google.com (quota / rate-limit page)
@@ -34,13 +34,26 @@ async def main() -> None:
     s = get_settings()
     if len(sys.argv) > 1:
         s.gemini_model = sys.argv[1]
-    if not s.gemini_api_key:
-        sys.exit("GEMINI_API_KEY is not set (backend/.env or environment).")
+    keys = s.api_keys
+    if not keys:
+        sys.exit("No key set: put GEMINI_API_KEY (and optionally GEMINI_API_KEYS) in backend/.env.")
 
+    # Check every key with models.list, which does not use generate quota. Keys are never printed.
     from google import genai
-    client = genai.Client(api_key=s.gemini_api_key)
-    flash = sorted(m.name for m in client.models.list() if "flash" in (m.name or ""))
-    print("Flash-class models visible to this key:\n  " + "\n  ".join(flash))
+    flash: set[str] = set()
+    bad = 0
+    for i, key in enumerate(keys, start=1):
+        try:
+            client = genai.Client(api_key=key)  # keep a reference: the pager reads lazily
+            names = [m.name for m in client.models.list() if "flash" in (m.name or "")]
+            flash.update(names)
+            print(f"key #{i} (...{key[-4:]}): OK, {len(names)} Flash models visible")
+        except Exception as exc:  # noqa: BLE001
+            bad += 1
+            print(f"key #{i} (...{key[-4:]}): FAILED ({type(exc).__name__}: {str(exc)[:120]})")
+    if bad == len(keys):
+        sys.exit("No working key.")
+    print("Flash-class models:\n  " + "\n  ".join(sorted(flash)))
 
     g = GeminiClient(s, use_db_cache=False)
     t0 = time.monotonic()
