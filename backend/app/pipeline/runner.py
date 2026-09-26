@@ -22,6 +22,7 @@ from app.errors import CATALOG, ConanError
 from app.models import Clause, Contract, Job, Obligation, Page
 from app.pipeline import dedupe, extract, ingest, segment
 from app.pipeline.gemini import GeminiClient
+from app.pipeline.recompute import recompute
 from app.schemas import STAGES
 
 log = logging.getLogger("conan.runner")
@@ -113,7 +114,10 @@ async def run_job(job_id: uuid.UUID) -> None:
             if n_unverified:
                 warnings.append(f"{n_unverified} obligation(s) have evidence that could not be verified.")
 
-            # Stages 5-7 (dates, edges, conflicts) land in H7-15.
+            _enter_stage(job_id, "dates", "Working out deadlines")
+            await asyncio.to_thread(_stage_dates, contract_id)
+
+            # Stages 6-7 (edges, conflicts) land in H9-15.
 
             final = "done_with_warnings" if warnings else "done"
             _update_job(job_id, state=final, stage="done", stage_index=len(STAGES) - 1, progress_pct=100,
@@ -226,6 +230,12 @@ def _stage_verify(contract_id: uuid.UUID, ex: extract.ExtractResult) -> tuple[in
                 s.add(c)
         s.commit()
         return len(rows), sum(r.evidence_status != "verified" for r in rows)
+
+
+def _stage_dates(contract_id: uuid.UUID) -> None:
+    with Session(get_engine()) as s:
+        recompute(s, contract_id)
+        s.commit()
 
 
 # ---------------------------------------------------------------- startup recovery

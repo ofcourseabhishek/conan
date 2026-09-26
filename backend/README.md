@@ -23,8 +23,14 @@ cp .env.example .env          # leave DATABASE_URL empty for local SQLite
   `clause.text.slice(o.evidence_start - clause.char_start, o.evidence_end - clause.char_start)`.
   Regenerate with `scripts/make_fixture.py`.
 - **Live today:** `GET /api/health`, `POST /api/contracts` (multipart `file`), `GET /api/jobs/{id}`,
-  `GET /api/contracts/{id}/analysis?as_of=&reviewed_only=` (clauses, obligations with risk; no events/edges yet),
-  `DELETE /api/contracts/{id}`.
+  `GET /api/contracts/{id}/analysis?as_of=&reviewed_only=`, `DELETE /api/contracts/{id}`, and the mutations below.
+  Every mutation accepts `?as_of=&reviewed_only=` and returns the full updated `Analysis` (replace your cache entry):
+  - `PUT /api/contracts/{id}/events/{key}` `{date: "YYYY-MM-DD" | null}` — resolves every obligation waiting on it
+  - `PATCH /api/obligations/{id}?contract_id=` `{action: confirm|edit|reject, patch?, note?}`
+  - `PATCH /api/obligations/{id}/status?contract_id=` `{status, occurred_on?}` — `done` sets the event the
+    obligation produces (completion cascade); moving back to `open` un-sets it. Use `blocked` for "Simulate blocked".
+  - `PATCH /api/edges/{id}` `{action: confirm|reject}` (no edges are generated until H9–12)
+- Events for `other` triggers are keyed `other:<obligation id>` and never merge.
 - A finished job with some failed clauses is `done_with_warnings` with `error_code: "PARTIAL_EXTRACTION"`;
   those clauses have `extraction_state: "extraction_failed"`.
 - **Errors** are `{error_code, message, action}` (see `app/errors.py`); failed jobs carry `error_code`,
@@ -50,5 +56,6 @@ cp .env.example .env          # leave DATABASE_URL empty for local SQLite
 | Actor canonicalization, dedupe, IDs | `pipeline/dedupe.py` | done, tested |
 | Risk + propagation (pulled forward from H9) | `pipeline/risk.py` | done, tested; fixture scores match |
 | Eval scorer | `tests/eval_score.py` | done; run #1 needs a live key + B's `fixtures/gold.json` |
-| Dates, events API, completion cascade | | H7–9 |
+| Dates, events, completion cascade, recompute | `pipeline/temporal.py`, `pipeline/recompute.py` | done, tested (+ property tests) |
+| Review / status / event / edge endpoints, audit trail | `api/review.py` | done, tested |
 | Rule edges, P2, recompute endpoints | | H9–12 |

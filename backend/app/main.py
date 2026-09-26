@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import contracts, jobs
+from app.api import contracts, jobs, review
 from app.config import get_settings
 from app.db import init_db, ping
 from app.errors import ConanError, conan_error_handler
@@ -36,6 +36,7 @@ app.add_middleware(
 app.add_exception_handler(ConanError, conan_error_handler)
 app.include_router(contracts.router)
 app.include_router(jobs.router)
+app.include_router(review.router)
 
 
 @app.get("/api/health", response_model=Health)
