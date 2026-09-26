@@ -13,7 +13,7 @@ from sqlmodel import Session
 from app.api.assemble import build_analysis, get_contract_or_404, resolve_as_of
 from app.db import get_session
 from app.models import Edge, Event, Obligation, ReviewAction
-from app.pipeline.recompute import recompute
+from app.pipeline.recompute import recompute, refresh_rules
 from app.pipeline.temporal import event_key
 from app.schemas import (
     Analysis, EdgeReviewRequest, EventDateRequest, ObligationReviewRequest, ObligationStatusRequest,
@@ -79,6 +79,7 @@ def review_obligation(obligation_id: str, body: ObligationReviewRequest, contrac
         o.review_state = "edited"
         _audit(s, contract_id, "obligation", o.id, "edit", before, after, body.note)
     s.add(o)
+    refresh_rules(s, contract_id)
     return _finish(s, contract_id, as_of, reviewed_only)
 
 

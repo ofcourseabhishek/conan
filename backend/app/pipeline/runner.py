@@ -19,8 +19,8 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.db import get_engine
 from app.errors import CATALOG, ConanError
-from app.models import Clause, Contract, Job, Obligation, Page
-from app.pipeline import dedupe, extract, ingest, segment
+from app.models import Clause, Contract, Edge, Job, Obligation, Page
+from app.pipeline import dedupe, edges, extract, ingest, segment
 from app.pipeline.gemini import GeminiClient
 from app.pipeline.recompute import recompute
 from app.schemas import STAGES
@@ -117,7 +117,10 @@ async def run_job(job_id: uuid.UUID) -> None:
             _enter_stage(job_id, "dates", "Working out deadlines")
             await asyncio.to_thread(_stage_dates, contract_id)
 
-            # Stages 6-7 (edges, conflicts) land in H9-15.
+            _enter_stage(job_id, "edges", "Linking obligations")
+            warnings += await _stage_edges(contract_id, client)
+
+            # Stage 7 (conflicts) lands in H13-15.
 
             final = "done_with_warnings" if warnings else "done"
             _update_job(job_id, state=final, stage="done", stage_index=len(STAGES) - 1, progress_pct=100,
@@ -230,6 +233,24 @@ def _stage_verify(contract_id: uuid.UUID, ex: extract.ExtractResult) -> tuple[in
                 s.add(c)
         s.commit()
         return len(rows), sum(r.evidence_status != "verified" for r in rows)
+
+
+async def _stage_edges(contract_id: uuid.UUID, client: GeminiClient) -> list[str]:
+    with Session(get_engine()) as s:
+        contract = s.get(Contract, contract_id)
+        obligations = s.exec(select(Obligation).where(Obligation.contract_id == contract_id)).all()
+        clauses = s.exec(select(Clause).where(Clause.contract_id == contract_id)).all()
+        pages = s.exec(select(Page).where(Page.contract_id == contract_id).order_by(Page.page_no)).all()
+        doc_text = contract.doc_text or ""
+        s.expunge_all()  # plain objects from here on; the LLM call must not hold a session open
+    res = await edges.build_edges(contract_id, obligations, clauses, doc_text,
+                                  [(p.char_start, p.char_end) for p in pages], client,
+                                  enable_llm=get_settings().enable_p2_llm)
+    with Session(get_engine()) as s:
+        s.exec(delete(Edge).where(Edge.contract_id == contract_id))
+        s.add_all(res.edges)
+        s.commit()
+    return res.warnings
 
 
 def _stage_dates(contract_id: uuid.UUID) -> None:

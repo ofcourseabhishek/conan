@@ -8,7 +8,8 @@ import uuid
 
 from sqlmodel import Session, select
 
-from app.models import Event, Obligation
+from app.models import Clause, Edge, Event, Obligation, Page
+from app.pipeline.edges import refresh_rule_edges, rule_edges
 from app.pipeline.temporal import EventDate, event_key, event_label, resolve
 
 
@@ -42,4 +43,20 @@ def recompute(s: Session, contract_id: uuid.UUID) -> None:
         o.date_provenance = r.provenance
         o.next_occurrences = [d.isoformat() for d in r.next_occurrences]
         s.add(o)
+    s.flush()
+
+
+def refresh_rules(s: Session, contract_id: uuid.UUID) -> None:
+    """Re-derive rule edges after a reviewer changes an obligation (trigger, produced event, reject).
+    Rule edges that still hold keep their review status; LLM edges are left alone."""
+    s.flush()
+    obligations = s.exec(select(Obligation).where(Obligation.contract_id == contract_id)).all()
+    clauses = s.exec(select(Clause).where(Clause.contract_id == contract_id)).all()
+    pages = s.exec(select(Page).where(Page.contract_id == contract_id).order_by(Page.page_no)).all()
+    existing = s.exec(select(Edge).where(Edge.contract_id == contract_id)).all()
+    fresh = rule_edges(contract_id, obligations, clauses, [(p.char_start, p.char_end) for p in pages])
+    to_add, to_delete = refresh_rule_edges(existing, fresh)
+    for e in to_delete:
+        s.delete(e)
+    s.add_all(to_add)
     s.flush()

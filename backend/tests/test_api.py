@@ -14,7 +14,7 @@ from app.main import app
 from app.models import Contract, Job
 from app.pipeline import runner
 from app.pipeline.gemini import GeminiClient
-from tests.fakes import fake_p1
+from tests.fakes import demo_llm, fake_p1
 from tests.pdfgen import build_blank_pdf, build_pdf
 
 
@@ -114,3 +114,38 @@ def test_stale_running_job_is_requeued_and_gives_up_after_three_attempts():
     with Session(get_engine()) as s:
         assert s.get(Job, ids[2]).state == "failed"
         assert s.get(Job, ids[1]).attempts == 1
+
+
+def test_demo_story_end_to_end():
+    """CP3 rehearsal: upload -> obligations -> links -> set PO date -> block delivery -> downstream impact."""
+    runner.set_llm_client(GeminiClient(Settings(gemini_rpm=6000, prompt_version=f"demo-{uuid.uuid4()}"),
+                                       transport=demo_llm))
+    try:
+        with TestClient(app) as client:
+            body = upload(client, build_pdf()).json()
+            job = wait_job(client, body["job_id"])
+            assert job["state"] == "done", job
+            cid = body["contract_id"]
+            a = client.get(f"/api/contracts/{cid}/analysis", params={"as_of": "2026-10-28"}).json()
+            obls = {o["action"]: o for o in a["obligations"]}
+            assert list(obls) == ["deliver", "inspect", "invoice", "pay"]
+            assert all(o["evidence_status"] == "verified" for o in obls.values())
+            links = {(e["upstream_id"], e["downstream_id"], e["relation"], e["source"]) for e in a["edges"]}
+            d, i, v, p = (obls[k]["id"] for k in ("deliver", "inspect", "invoice", "pay"))
+            assert {(d, i, "must_precede", "rule"), (i, v, "must_precede", "rule"), (v, p, "must_precede", "rule"),
+                    (i, v, "condition_for", "llm")} <= links
+            assert a["stats"]["unresolved_dates"] == 3
+
+            a = client.put(f"/api/contracts/{cid}/events/po_issued", params={"as_of": "2026-10-28"},
+                           json={"date": "2026-10-20"}).json()
+            assert next(o for o in a["obligations"] if o["id"] == d)["due_date"] == "2026-11-03"
+
+            a = client.patch(f"/api/obligations/{d}/status", params={"contract_id": cid, "as_of": "2026-10-28"},
+                             json={"status": "blocked"}).json()
+            risk = {o["id"]: o["risk"] for o in a["obligations"]}
+            impact = lambda oid: next((f for f in risk[oid]["factors"] if f["factor"] == "Potential downstream impact"), None)  # noqa: E731
+            assert impact(i)["points"] == 24 and impact(i)["path"][0]["upstream_id"] == d
+            assert impact(v)["points"] == 15 and impact(p)["points"] > 0
+            assert risk[d]["score"] == 57 and risk[d]["band"] == "high"  # 20 due soon + 30 blocked + 7 delivery
+    finally:
+        runner.set_llm_client(None)
