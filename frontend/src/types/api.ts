@@ -98,6 +98,7 @@ export interface DeadlineRule {
   direction: "before" | "after" | null;
   anchor_event: EventKey | null;
   recurrence: "weekly" | "monthly" | "quarterly" | "annually" | null;
+  recurrence_basis: "period_end" | "from_event" | null;
   is_conditional: boolean;
 }
 

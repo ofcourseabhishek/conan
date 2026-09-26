@@ -47,6 +47,8 @@ OffsetUnit = Literal["day", "week", "month", "year"]
 DayType = Literal["calendar", "business", "unspecified"]
 Direction = Literal["before", "after"]
 RecurrenceFreq = Literal["weekly", "monthly", "quarterly", "annually"]
+# period_end: counted from the end of each calendar week/month/quarter/year; from_event: from each occurrence
+RecurrenceBasis = Literal["period_end", "from_event"]
 RiskBand = Literal["low", "medium", "high", "critical"]
 RiskProvenance = Literal["computed", "extracted", "user"]
 ConflictKind = Literal["offset_mismatch", "day_type_mismatch", "amount_mismatch", "date_mismatch", "notice_period", "llm"]
@@ -89,6 +91,7 @@ class DeadlineRule(Out):
     direction: Direction | None = None
     anchor_event: EventKey | None = None
     recurrence: RecurrenceFreq | None = None
+    recurrence_basis: RecurrenceBasis | None = None
     is_conditional: bool = False
 
 

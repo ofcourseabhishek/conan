@@ -26,6 +26,9 @@ _PROVENANCE = {"user": "user_event", "completion": "completion", "contract_text"
 _SOURCE_WORD = {"user": "user-set", "completion": "marked done", "contract_text": "from the contract"}
 _FREQ = {"weekly": relativedelta(weeks=1), "monthly": relativedelta(months=1),
          "quarterly": relativedelta(months=3), "annually": relativedelta(years=1)}
+# About a year of occurrences, so the "next upcoming" one exists for a while after the start date.
+OCCURRENCES = {"weekly": 8, "monthly": 12, "quarterly": 4, "annually": 3}
+_PERIOD = {"weekly": "week", "monthly": "month", "quarterly": "quarter", "annually": "year"}
 
 
 @dataclass
@@ -132,20 +135,63 @@ def resolve(o, events: dict[str, EventDate]) -> Resolution:
     prov = _PROVENANCE[anchor.source]
     offset = rule.get("offset")
 
+    if kind == "recurring" and not rule.get("recurrence") and offset and rule.get("recurrence_basis") != "period_end":
+        # "within 15 days of each renewal": no fixed frequency, so it is due from the latest such event
+        due, desc = apply_offset(anchor.date, offset, rule.get("direction"))
+        sign = "−" if rule.get("direction") == "before" else "+"
+        return Resolution("resolved", due, prov, f"{head} {sign} {desc} → {due} (repeats after each {key})")
+
     if kind == "recurring":
-        freq = _FREQ.get(rule.get("recurrence") or "")
+        name = rule.get("recurrence") or ""
+        freq = _FREQ.get(name)
         if freq is None:
             return Resolution("ambiguous", trace="Recurrence frequency not identified")
-        first, desc = (apply_offset(anchor.date, offset, rule.get("direction")) if offset
-                       else (anchor.date + freq, rule["recurrence"]))
-        occ = [first + freq * k for k in range(3)]
-        return Resolution("resolved", occ[0], prov, f"{head} + {desc}, repeating {rule['recurrence']} → {occ[0]}", occ)
+        n, direction = OCCURRENCES[name], rule.get("direction") or "after"
+        if rule.get("recurrence_basis") == "period_end":
+            ends = period_ends(anchor.date, name, n)
+            if offset and offset.get("value"):  # "by the last day of each quarter" has no gap at all
+                occ = [apply_offset(e, offset, direction)[0] for e in ends]
+                sign = "−" if direction == "before" else "+"
+                gap = f" {sign} {apply_offset(ends[0], offset, direction)[1]}"
+            else:
+                occ, gap = ends, ""
+            return Resolution("resolved", occ[0], prov,
+                              f"{head}: end of each calendar {_PERIOD[name]} from {ends[0]}{gap} → {occ[0]}, "
+                              f"then every {_PERIOD[name]}", occ)
+        first, desc = (apply_offset(anchor.date, offset, direction) if offset else (anchor.date + freq, name))
+        occ = [first + freq * k for k in range(n)]
+        return Resolution("resolved", occ[0], prov, f"{head} + {desc}, repeating {name} → {occ[0]}", occ)
 
     if not offset:
         return Resolution("ambiguous", trace="Deadline offset not identified")
     due, desc = apply_offset(anchor.date, offset, rule.get("direction"))
     sign = "−" if rule.get("direction") == "before" else "+"
     return Resolution("resolved", due, prov, f"{head} {sign} {desc} → {due}")
+
+
+def period_ends(start: dt.date, name: str, n: int) -> list[dt.date]:
+    """The first n calendar period ends on or after `start` (weeks end on Sunday; quarters are calendar
+    quarters). Month-end clamping comes from relativedelta(day=31)."""
+    if name == "weekly":
+        first = start + dt.timedelta(days=(6 - start.weekday()) % 7)
+        return [first + dt.timedelta(weeks=k) for k in range(n)]
+    if name == "monthly":
+        first, step = start + relativedelta(day=31), 1
+    elif name == "quarterly":
+        first, step = dt.date(start.year, (start.month - 1) // 3 * 3 + 3, 1) + relativedelta(day=31), 3
+    else:
+        first, step = dt.date(start.year, 12, 31), 12
+    return [first + relativedelta(months=step * k, day=31) for k in range(n)]
+
+
+def upcoming_due(o, as_of: dt.date) -> dt.date | None:
+    """For a recurring obligation, the next occurrence on or after as_of (the last one once the schedule
+    has run out); otherwise the stored due date. Used for display and risk, so an old first occurrence
+    doesn't read as overdue forever."""
+    occ = [_as_date(d) for d in (getattr(o, "next_occurrences", None) or [])]
+    if not occ:
+        return o.due_date
+    return next((d for d in occ if d >= as_of), occ[-1])
 
 
 def _as_date(v) -> dt.date:

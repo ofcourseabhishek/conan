@@ -7,7 +7,10 @@ Length caps are enforced by item-level validation in extract.py, not in the sche
 
 from pydantic import BaseModel
 
-from app.schemas import Category, DayType, DeadlineKind, Direction, EventKey, Modality, OffsetUnit, RecurrenceFreq, Relation
+from app.schemas import (
+    Category, DayType, DeadlineKind, Direction, EventKey, Modality, OffsetUnit, RecurrenceBasis, RecurrenceFreq,
+    Relation,
+)
 
 QUOTE_MAX, FREE_TEXT_MAX = 400, 300
 
@@ -37,6 +40,7 @@ class P1Obligation(BaseModel):
     day_type: DayType | None
     direction: Direction | None
     recurrence_freq: RecurrenceFreq | None
+    recurrence_basis: RecurrenceBasis | None = None
     amount_value: float | None
     amount_currency: str | None
     penalty_text: str | None

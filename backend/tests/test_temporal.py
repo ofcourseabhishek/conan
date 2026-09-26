@@ -89,7 +89,50 @@ def test_recurring_occurrences():
     assert r.next_occurrences == [D(2027, 4, 16), D(2028, 4, 16), D(2029, 4, 16)] and r.due_date == D(2027, 4, 16)
     no_off = {"kind": "recurring", "recurrence": "quarterly", "anchor_event": "term_start"}
     assert resolve(ob(no_off), {"term_start": ev(D(2026, 11, 30))}).next_occurrences == \
-        [D(2027, 2, 28), D(2027, 5, 28), D(2027, 8, 28)]
+        [D(2027, 2, 28), D(2027, 5, 28), D(2027, 8, 28), D(2027, 11, 28)]
+
+
+def test_period_end_monthly_report():
+    """'within seven (7) Business Days of the end of each calendar month' (live-run case)."""
+    rule = rel(7, day_type="business", anchor="effective_date", kind="recurring")
+    rule.update(kind="recurring", recurrence="monthly", recurrence_basis="period_end")
+    r = resolve(ob(rule), {"effective_date": ev(D(2026, 9, 15))})
+    assert r.status == "resolved" and r.provenance == "user_event" and len(r.next_occurrences) == 12
+    # Sep 30 (Wed) + 7 business days = Oct 9; Oct 31 (Sat) + 7 = Nov 10; Feb 28 2027 (Sun) + 7 = Mar 9
+    assert r.next_occurrences[:3] == [D(2026, 10, 9), D(2026, 11, 10), D(2026, 12, 9)]
+    assert D(2027, 3, 9) in r.next_occurrences
+    assert "end of each calendar month from 2026-09-30 + 7 business days" in r.trace
+    assert resolve(ob(rule), {}).status == "unresolved_trigger"  # no start date typed yet: no dates
+
+
+def test_period_end_quarter_year_week_and_before():
+    from app.pipeline.temporal import period_ends
+    assert period_ends(D(2026, 11, 5), "quarterly", 3) == [D(2026, 12, 31), D(2027, 3, 31), D(2027, 6, 30)]
+    assert period_ends(D(2026, 1, 31), "monthly", 3) == [D(2026, 1, 31), D(2026, 2, 28), D(2026, 3, 31)]
+    assert period_ends(D(2026, 12, 31), "annually", 2) == [D(2026, 12, 31), D(2027, 12, 31)]
+    assert period_ends(D(2026, 10, 28), "weekly", 2) == [D(2026, 11, 1), D(2026, 11, 8)]  # Sundays
+    rule = rel(10, anchor="effective_date", direction="before")
+    rule.update(kind="recurring", recurrence="quarterly", recurrence_basis="period_end")
+    r = resolve(ob(rule), {"effective_date": ev(D(2026, 11, 5))})
+    assert r.next_occurrences[0] == D(2026, 12, 21) and " − 10 calendar days" in r.trace
+
+
+def test_upcoming_due_picks_next_occurrence():
+    from app.pipeline.temporal import upcoming_due
+    o = NS(due_date=D(2026, 10, 9), next_occurrences=["2026-10-09", "2026-11-10", "2026-12-09"])
+    assert upcoming_due(o, D(2026, 10, 28)) == D(2026, 11, 10)
+    assert upcoming_due(o, D(2026, 11, 10)) == D(2026, 11, 10)
+    assert upcoming_due(o, D(2027, 6, 1)) == D(2026, 12, 9)  # schedule ran out: the last one, now overdue
+    assert upcoming_due(NS(due_date=D(2026, 1, 1), next_occurrences=[]), D(2026, 6, 1)) == D(2026, 1, 1)
+
+
+def test_recurring_risk_uses_next_occurrence():
+    from app.pipeline.risk import score_all
+    o = NS(id="O-001", status="open", review_state="proposed", modality="must", due_date=D(2026, 10, 9),
+           next_occurrences=["2026-10-09", "2026-11-10"], resolution_status="resolved", penalty_text=None,
+           amount=None, category="other", deadline_rule={}, evidence_status="verified", confidence=0.9)
+    factors = [f.factor for f in score_all([o], [], [], D(2026, 10, 28))["O-001"].factors]
+    assert factors == ["Due in 8-30 days"]  # Nov 10 is 13 days out; the Oct 9 occurrence is not "overdue"
 
 
 def test_conditional_pending_until_its_event_occurs():
@@ -109,3 +152,36 @@ def test_reviewer_entered_date_is_user_event():
     r = resolve(ob(rule, field_provenance={"deadline_rule": "user"}), {})
     assert (r.due_date, r.provenance) == (D(2027, 1, 15), "user_event")
     assert resolve(ob(rule), {}).status == "ambiguous"  # the same value from the LLM is not trusted
+
+
+def test_each_event_recurrence_without_frequency_resolves_from_latest_event():
+    rule = rel(15, anchor="renewal")
+    rule.update(kind="recurring", recurrence=None, recurrence_basis="from_event")
+    r = resolve(ob(rule), {"renewal": ev(D(2027, 4, 1))})
+    assert (r.status, r.due_date) == ("resolved", D(2027, 4, 16)) and "repeats after each renewal" in r.trace
+
+
+def test_period_end_schedule_never_waits_on_an_other_event():
+    from app.pipeline.dedupe import deadline_rule
+    from app.pipeline.llm_schemas import P1Obligation
+    from tests.test_extract import ob as p1
+    it = P1Obligation(**p1("C02", "deliver the monthly usage report within seven (7) Business Days",
+                           deadline_kind="recurring", recurrence_freq="monthly", recurrence_basis="period_end",
+                           trigger_event="other", trigger_label="end of each calendar month", day_type="business",
+                           offset_value=7))
+    assert deadline_rule(it)["anchor_event"] == "effective_date"
+    it.recurrence_basis = "from_event"
+    assert deadline_rule(it)["anchor_event"] == "other"  # only period-end schedules are re-anchored
+
+
+def test_zero_gap_period_end_is_clean():
+    from app.pipeline.risk import score_all
+    rule = rel(0, day_type="unspecified", anchor="effective_date")
+    rule.update(kind="recurring", recurrence="quarterly", recurrence_basis="period_end")
+    r = resolve(ob(rule), {"effective_date": ev(D(2026, 9, 15))})
+    assert r.next_occurrences[:2] == [D(2026, 9, 30), D(2026, 12, 31)] and "0 calendar days" not in r.trace
+    o = NS(id="O-1", status="open", review_state="proposed", modality="must", due_date=r.due_date,
+           next_occurrences=[d.isoformat() for d in r.next_occurrences], resolution_status="resolved",
+           penalty_text=None, amount=None, category="other", deadline_rule=rule, evidence_status="verified",
+           confidence=0.9)
+    assert "Day type unspecified" not in [f.factor for f in score_all([o], [], [], D(2026, 10, 28))["O-1"].factors]

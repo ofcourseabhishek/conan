@@ -11,7 +11,7 @@ from app.config import get_settings
 from app.models import Clause, Conflict, Contract, Edge, Event, Obligation, ReviewAction
 from app.pipeline.risk import edge_propagates, score_all
 from app.pipeline.runner import latest_job
-from app.pipeline.temporal import event_key
+from app.pipeline.temporal import event_key, upcoming_due
 from app.schemas import (
     Analysis, ClauseOut, ConflictOut, ContractOut, EdgeOut, EventOut, ObligationOut, Party, ReviewActionOut, Stats,
 )
@@ -46,6 +46,7 @@ def build_analysis(s: Session, contract: Contract, as_of: dt.date, reviewed_only
 
     risks = score_all(obligations, edges, conflicts, as_of, reviewed_only)
     obligation_out = [ObligationOut.model_validate({**o.model_dump(), "risk": risks[o.id],
+                                                   "due_date": upcoming_due(o, as_of),  # next occurrence if recurring
                                                    "needs_review": needs_review(o)}) for o in obligations]
     edge_out = [EdgeOut.model_validate({**e.model_dump(), "propagates": edge_propagates(e, reviewed_only)})
                 for e in edges]

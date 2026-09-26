@@ -56,6 +56,10 @@ Other scripts, all run from `backend\`:
   `rejected` / `auto_rejected` and, by default, `evidence_status: "unverified"`. `propagates` says whether the
   edge feeds downstream impact under the current `reviewed_only`.
 - Events for `other` triggers are keyed `other:<obligation id>` and never merge.
+- Recurring obligations (`deadline_rule.kind == "recurring"`) carry up to a year of `next_occurrences`;
+  `due_date` in the analysis is the **next upcoming** occurrence for the requested `as_of` (risk uses the same).
+  `recurrence_basis: "period_end"` schedules ("7 business days after each month end") start once the
+  `effective_date` event has a date; until then they sit in the "Needs trigger date" lane like any other.
 - A finished job with some failed clauses is `done_with_warnings` with `error_code: "PARTIAL_EXTRACTION"`;
   those clauses have `extraction_state: "extraction_failed"`.
 - **Errors** are `{error_code, message, action}` (see `app/errors.py`); failed jobs carry `error_code`,

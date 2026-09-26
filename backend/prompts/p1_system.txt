@@ -22,7 +22,16 @@ in "obligations". A mutual duty ("each party shall", "either party may") becomes
   - relative: fill offset_value, offset_unit (day, week, month, year), day_type (business if the text
     says business/working days, calendar if it says calendar days, otherwise unspecified), direction
     (after or before) and trigger_event.
-  - recurring: fill recurrence_freq and, if it starts from an event, trigger_event.
+  - recurring: a duty that repeats ("monthly report", "each quarter", "annually", "every renewal").
+    Fill recurrence_freq (weekly, monthly, quarterly, annually) and recurrence_basis:
+    - period_end: the deadline is counted from the end of each calendar period ("within 7 business days
+      of the end of each calendar month", "by the last day of each quarter"). Put the gap in offset_value,
+      offset_unit, day_type and direction (0 days if due on the period end itself), and set trigger_event
+      to the event when the repeating starts: effective_date unless the text names another. The period end
+      itself is NOT an event, so never use "other" for it.
+    - from_event: each occurrence is counted from a repeating event ("within 15 days of each renewal").
+      Set trigger_event to that event and the gap in the offset fields; leave recurrence_freq null unless
+      the text gives a fixed frequency.
 - trigger_event / produces_event: choose from effective_date, po_issued, delivery, inspection_complete,
   acceptance, certificate_submitted, invoice_receipt, payment, notice_given, term_start, term_end,
   renewal, termination. If nothing fits use "other" and describe it in trigger_label.

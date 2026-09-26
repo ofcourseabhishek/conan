@@ -130,6 +130,14 @@ def _provisional_resolution(kind: str, is_conditional: bool, anchor: str | None)
     return "ambiguous"  # absolute: parsed against the verified quote in stage 5
 
 
+def _anchor(it: P1Obligation) -> str | None:
+    """A period-end schedule starts at the effective date unless a real start event was named; models tend
+    to call the period end itself 'other', which nobody could ever set a date for."""
+    if it.deadline_kind == "recurring" and it.recurrence_basis == "period_end"             and it.trigger_event in (None, "other"):
+        return "effective_date"
+    return it.trigger_event
+
+
 def deadline_rule(it: P1Obligation) -> dict:
     offset = None
     if it.offset_value is not None and it.offset_unit:
@@ -142,8 +150,9 @@ def deadline_rule(it: P1Obligation) -> dict:
         "absolute_date": None,
         "offset": offset,
         "direction": it.direction,
-        "anchor_event": it.trigger_event,
+        "anchor_event": _anchor(it),
         "recurrence": it.recurrence_freq,
+        "recurrence_basis": it.recurrence_basis,
         "is_conditional": it.is_conditional,
     }
 

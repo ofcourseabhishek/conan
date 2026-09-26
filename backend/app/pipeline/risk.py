@@ -11,6 +11,7 @@ import datetime as dt
 from collections import defaultdict
 from dataclasses import dataclass
 
+from app.pipeline.temporal import upcoming_due
 from app.schemas import PathStep, Risk, RiskFactor
 
 W = {"condition_for": 1.0, "depends_on": 1.0, "must_precede": 0.8, "may_trigger": 0.6}
@@ -32,8 +33,8 @@ def is_active(o) -> bool:
 
 
 def is_overdue(o, as_of: dt.date) -> bool:
-    return (is_active(o) and o.due_date is not None and o.due_date < as_of
-            and o.resolution_status != "conditional_pending")
+    due = upcoming_due(o, as_of)
+    return is_active(o) and due is not None and due < as_of and o.resolution_status != "conditional_pending"
 
 
 def is_unresolved_must(o) -> bool:
@@ -97,18 +98,19 @@ def score_all(obligations: list, edges: list, conflicts: list, as_of: dt.date,
             continue
         f: list[RiskFactor] = []
         time_mult = 0.0 if o.resolution_status == "conditional_pending" else 0.5 if o.modality in ("may", "must_not") else 1.0
-        if o.due_date is not None and time_mult:
-            days = (o.due_date - as_of).days
+        due = upcoming_due(o, as_of)
+        if due is not None and time_mult:
+            days = (due - as_of).days
             note = "" if time_mult == 1 else f" (×0.5 for '{o.modality}')"
             if days < 0:
                 f.append(RiskFactor(factor="Overdue", points=_r(35 * time_mult), provenance="computed",
-                                    detail=f"Due {o.due_date}, {-days} days before {as_of}{note}"))
+                                    detail=f"Due {due}, {-days} days before {as_of}{note}"))
             elif days <= 7:
                 f.append(RiskFactor(factor="Due within 7 days", points=_r(20 * time_mult), provenance="computed",
-                                    detail=f"Due {o.due_date}, {days} days after {as_of}{note}"))
+                                    detail=f"Due {due}, {days} days after {as_of}{note}"))
             elif days <= 30:
                 f.append(RiskFactor(factor="Due in 8-30 days", points=_r(10 * time_mult), provenance="computed",
-                                    detail=f"Due {o.due_date}, {days} days after {as_of}{note}"))
+                                    detail=f"Due {due}, {days} days after {as_of}{note}"))
         if o.status == "blocked":
             f.append(RiskFactor(factor="Status blocked", points=30, provenance="user"))
         if o.penalty_text:
@@ -125,7 +127,8 @@ def score_all(obligations: list, edges: list, conflicts: list, as_of: dt.date,
             anchor = (o.deadline_rule or {}).get("anchor_event")
             f.append(RiskFactor(factor="Unresolved date on a must", points=8, provenance="computed",
                                 detail=f"Needs the '{anchor}' date" if anchor else "Deadline could not be read"))
-        if ((o.deadline_rule or {}).get("offset") or {}).get("day_type") == "unspecified":
+        off = (o.deadline_rule or {}).get("offset") or {}
+        if off.get("day_type") == "unspecified" and off.get("value"):  # a 0-day gap has no day type
             f.append(RiskFactor(factor="Day type unspecified", points=5, provenance="computed",
                                 detail="Counted as calendar days"))
         if o.evidence_status != "verified":
