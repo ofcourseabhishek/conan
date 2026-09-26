@@ -2,21 +2,34 @@
 
 FastAPI + PyMuPDF + Gemini + Postgres. Spec: [docs/TRD.md](../docs/TRD.md). Plan: the council build plan.
 
-## Run locally
+## Run locally (Windows PowerShell 5.1: one command per line, no `&&`)
 
-```bash
+```powershell
 cd backend
-uv venv .venv --python 3.11
-uv pip install --python .venv/Scripts/python.exe -r requirements-dev.txt
-cp .env.example .env          # leave DATABASE_URL empty for local SQLite
-.venv/Scripts/python -m uvicorn main:app --reload --port 8000   # or app.main:app
-.venv/Scripts/python -m pytest -q
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+Copy-Item .env.example .env          # then edit .env; leave DATABASE_URL empty for local SQLite
+.\.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+With `uv` installed, the first two setup lines can be `uv venv .venv --python 3.11` and
+`uv pip install --python .venv\Scripts\python.exe -r requirements-dev.txt`. Git Bash / macOS / Linux: use
+`.venv/Scripts/python` (Windows) or `.venv/bin/python`, and `cp` instead of `Copy-Item`.
+
+Other scripts, all run from `backend\`:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\gemini_smoke.py
+.\.venv\Scripts\python.exe scripts\export_types.py
+.\.venv\Scripts\python.exe scripts\make_fixture.py
+.\.venv\Scripts\python.exe -m tests.eval_score --gold fixtures\gold.json --api http://localhost:8000 --contract <contract_id>
 ```
 
 ## For Person B (frontend)
 
 - **Types:** `frontend/src/types/api.ts` is generated from `app/schemas.py`. Never edit it by hand; run
-  `.venv/Scripts/python scripts/export_types.py` after any schema change and commit both files.
+  `..venvScriptspython.exe scriptsexport_types.py` after any schema change and commit both files.
 - **Fixture:** `frontend/public/offline_fixture.json` (same as `backend/fixtures/demo_analysis.json`) is a
   full `Analysis` with 4 obligations (O-004 → O-007 → O-009 → O-012), 3 edges, 4 events, 1 conflict and an
   audit trail. Offsets and pages are real, so quote highlighting works: highlight
@@ -55,7 +68,7 @@ come from different projects.
 
 ## H0 checks (council conditions)
 
-1. Put your key in `backend/.env`, then `.venv/Scripts/python scripts/gemini_smoke.py` confirms the model id and the
+1. Put your key(s) in `backend/.env`, then `..venvScriptspython.exe scriptsgemini_smoke.py` confirms the model id and the
    flat P1 schema. Read RPM/RPD for that model off the AI Studio rate-limit page and set `GEMINI_RPM`.
 2. Render: New → Blueprint → this repo (`render.yaml`). Set `DATABASE_URL` (Neon, `sslmode=require`),
    `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_RPM`, `ALLOWED_ORIGINS` (Vercel URL).
