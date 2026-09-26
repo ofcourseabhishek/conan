@@ -20,7 +20,7 @@ from app.config import get_settings
 from app.db import get_engine
 from app.errors import CATALOG, ConanError
 from app.models import Clause, Conflict, Contract, Edge, Job, Obligation, Page
-from app.pipeline import conflicts, dedupe, edges, extract, ingest, segment
+from app.pipeline import conflicts, dedupe, edges, extract, ingest, segment, snapshot
 from app.pipeline.gemini import GeminiClient
 from app.pipeline.recompute import recompute
 from app.schemas import STAGES
@@ -124,6 +124,8 @@ async def run_job(job_id: uuid.UUID) -> None:
             _enter_stage(job_id, "conflicts", "Looking for inconsistent terms")
             await asyncio.to_thread(_stage_conflicts, contract_id, llm_conflicts)
 
+            if not ex.failed:  # cache first, so the result is cacheable the moment the job reads done;
+                await asyncio.to_thread(_save_snapshot, contract_id)  # never cache a partial result
             final = "done_with_warnings" if warnings else "done"
             _update_job(job_id, state=final, stage="done", stage_index=len(STAGES) - 1, progress_pct=100,
                         message=f"Found {n_obl} obligations in {n_clauses} clauses", warnings=warnings,
@@ -266,6 +268,15 @@ def _stage_conflicts(contract_id: uuid.UUID, llm_proposals) -> None:
             s.add_all(conflicts.llm_conflicts(contract_id, llm_proposals, obligations, contract.doc_text or "",
                                               [(p.char_start, p.char_end) for p in pages]))
         s.commit()
+
+
+def _save_snapshot(contract_id: uuid.UUID) -> None:
+    try:
+        with Session(get_engine()) as s:
+            snapshot.save(s, contract_id)
+            s.commit()
+    except Exception:  # the cache is an optimisation; never fail a finished job over it
+        log.exception("snapshot failed contract=%s", contract_id)
 
 
 def _stage_dates(contract_id: uuid.UUID) -> None:

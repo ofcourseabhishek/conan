@@ -5,7 +5,9 @@ import time
 import uuid
 from collections import defaultdict, deque
 
-from fastapi import APIRouter, Depends, Request, Response, UploadFile
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
 from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
@@ -14,7 +16,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.errors import ConanError
 from app.models import Contract, Job
-from app.pipeline import runner
+from app.pipeline import runner, snapshot
 from app.pipeline.ingest import MAGIC
 from app.schemas import Analysis, UploadResponse
 
@@ -42,8 +44,44 @@ def _display_name(filename: str | None) -> str:
     return (stem or "Contract")[:120]
 
 
+SAMPLE_PDF = Path(__file__).resolve().parents[2] / "fixtures" / "demo_contract.pdf"
+SAMPLE_NAME = "Sample: Master Supply & Services Agreement"
+
+
+def _start_or_clone(s: Session, data: bytes, response: Response, *, name: str, filename: str,
+                    is_sample: bool = False) -> UploadResponse:
+    """Serve from analysis_cache when this exact PDF was analysed by this pipeline version (200),
+    otherwise queue a job (202). Cached results are labelled via contract.cached_at."""
+    st = get_settings()
+    sha = hashlib.sha256(data).hexdigest()
+    if cached := snapshot.lookup(s, sha, st.pipeline_version):
+        contract, job = snapshot.clone(s, cached, name=name, is_sample=is_sample)
+        s.commit()
+        response.status_code = 200
+        return UploadResponse(contract_id=contract.id, job_id=job.id, cached=True)
+    contract = Contract(name=name, filename=filename, sha256=sha, pipeline_version=st.pipeline_version,
+                        is_sample=is_sample)
+    s.add(contract)
+    s.flush()
+    job = Job(contract_id=contract.id, message="Queued")
+    s.add(job)
+    s.commit()
+    runner.start_job(job.id, data)
+    return UploadResponse(contract_id=contract.id, job_id=job.id, cached=False)
+
+
+@router.post("/contracts/sample", response_model=UploadResponse, status_code=202)
+async def sample_contract(response: Response, s: Session = Depends(get_session)) -> UploadResponse:
+    """'Try sample contract': a fresh copy of the bundled demo contract, from the cache when warm."""
+    if not SAMPLE_PDF.exists():
+        raise HTTPException(status_code=404, detail="Sample contract not bundled")
+    return _start_or_clone(s, SAMPLE_PDF.read_bytes(), response, name=SAMPLE_NAME,
+                           filename="demo_contract.pdf", is_sample=True)
+
+
 @router.post("/contracts", response_model=UploadResponse, status_code=202)
-async def upload_contract(request: Request, file: UploadFile, s: Session = Depends(get_session)):
+async def upload_contract(request: Request, file: UploadFile, response: Response,
+                          s: Session = Depends(get_session)):
     st = get_settings()
     ip = request.client.host if request.client else "unknown"
     if not _allow_upload(ip):
@@ -64,18 +102,8 @@ async def upload_contract(request: Request, file: UploadFile, s: Session = Depen
     if MAGIC not in data[:1024]:
         raise ConanError("NOT_PDF")
 
-    sha = hashlib.sha256(data).hexdigest()
-    # (sha256, PIPELINE_VERSION) analysis_cache lookup lands with /sample at H13-15.
-
-    contract = Contract(name=_display_name(file.filename), filename=_display_name(file.filename) + ".pdf",
-                        sha256=sha, pipeline_version=st.pipeline_version)
-    s.add(contract)
-    s.flush()
-    job = Job(contract_id=contract.id, message="Queued")
-    s.add(job)
-    s.commit()
-    runner.start_job(job.id, data)
-    return UploadResponse(contract_id=contract.id, job_id=job.id, cached=False)
+    name = _display_name(file.filename)
+    return _start_or_clone(s, data, response, name=name, filename=name + ".pdf")
 
 
 @router.get("/contracts/{contract_id}/analysis", response_model=Analysis)

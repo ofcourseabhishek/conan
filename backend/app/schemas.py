@@ -283,8 +283,8 @@ class JobOut(Out):
 
 class UploadResponse(Out):
     contract_id: UUID
-    job_id: UUID | None  # None when served from analysis_cache
-    cached: bool
+    job_id: UUID | None  # always set; a cache hit returns an already-finished job
+    cached: bool  # true = cloned from analysis_cache (HTTP 200); show "Cached analysis"
 
 
 class ObligationPatch(BaseModel):

@@ -43,6 +43,11 @@ Other scripts, all run from `backend\`:
   - `PATCH /api/obligations/{id}/status?contract_id=` `{status, occurred_on?}` — `done` sets the event the
     obligation produces (completion cascade); moving back to `open` un-sets it. Use `blocked` for "Simulate blocked".
   - `PATCH /api/edges/{id}` `{action: confirm|reject}`
+  - `PATCH /api/conflicts/{id}` `{action: dismiss|reopen}` (a dismissal survives later recomputes)
+- `POST /api/contracts/sample` backs **Try sample contract**. `POST /api/contracts` and `/sample` return `200` with
+  `cached: true` when the analysis comes from `analysis_cache` (the job is already `done`); otherwise `202`. When
+  `contract.cached_at` is set, show a **Cached analysis** label. Every cached copy is independent.
+- `GET /api/contracts/{id}/export.ics` (resolved deadlines, alarms 7 days and 1 day before) and `/export.csv`.
 - Edges: `source` is `rule` (deterministic) or `llm` (P2). Draw `proposed` dashed, `confirmed` solid; hide
   `rejected` / `auto_rejected` and, by default, `evidence_status: "unverified"`. `propagates` says whether the
   edge feeds downstream impact under the current `reviewed_only`.
@@ -89,3 +94,9 @@ come from different projects.
 | Dates, events, completion cascade, recompute | `pipeline/temporal.py`, `pipeline/recompute.py` | done, tested (+ property tests) |
 | Review / status / event / edge endpoints, audit trail | `api/review.py` | done, tested |
 | Rule edges (event chain, cross-ref, penalty), P2 + validation, cycle breaking, rule refresh on edit | `pipeline/edges.py`, `prompts/p2_system.txt` | done, tested; CP3 story rehearsed in `test_demo_story_end_to_end` |
+| Conflicts (D2): rule flags, notice periods, optional LLM layer, dismiss/reopen | `pipeline/conflicts.py` | done, tested |
+| Analysis cache, `/sample`, seed script | `pipeline/snapshot.py`, `scripts/seed_demo.py` | done, tested; sample seeded in Neon |
+| ICS / CSV export | `api/exports.py` | done, tested |
+
+`fixtures/demo_contract.pdf` is a synthetic placeholder until Person B's demo contract lands. After replacing it,
+re-seed: `.\.venv\Scripts\python.exe scripts\seed_demo.py --force`. Do the same after any prompt change.
