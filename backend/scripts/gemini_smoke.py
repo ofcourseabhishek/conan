@@ -59,7 +59,7 @@ async def main() -> None:
     t0 = time.monotonic()
     r = await g.generate(SYSTEM, USER, P1Response)
     ms = (time.monotonic() - t0) * 1000
-    print(f"\nmodel={s.gemini_model} finish={r.finish_reason} latency={ms:.0f} ms")
+    print(f"\nmodel={r.model or s.gemini_model} finish={r.finish_reason} latency={ms:.0f} ms")
     if r.data is None:
         sys.exit("FAIL: response was not JSON:\n" + r.text[:500])
     parsed = P1Response.model_validate(r.data)

@@ -27,7 +27,9 @@ in "obligations". A mutual duty ("each party shall", "either party may") becomes
   acceptance, certificate_submitted, invoice_receipt, payment, notice_given, term_start, term_end,
   renewal, termination. If nothing fits use "other" and describe it in trigger_label.
   produces_event is the event this obligation creates when done (delivering goods -> delivery,
-  issuing an invoice -> invoice_receipt, paying -> payment). Null if none.
+  inspecting goods / notifying acceptance or rejection -> acceptance, issuing an invoice -> invoice_receipt,
+  paying -> payment, giving notice -> notice_given). Prefer the event that a LATER obligation in the
+  contract is triggered by, so the chain of duties connects. Null if none.
 - is_conditional: true only if the duty applies only if something may or may not happen
   ("if Supplier fails to...", "in the event of..."); put that condition in condition_text.
 - amount_value / amount_currency: a money amount stated for this obligation (as a plain number,
