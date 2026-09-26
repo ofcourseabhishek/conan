@@ -48,6 +48,10 @@ Other scripts, all run from `backend\`:
   `cached: true` when the analysis comes from `analysis_cache` (the job is already `done`); otherwise `202`. When
   `contract.cached_at` is set, show a **Cached analysis** label. Every cached copy is independent.
 - `GET /api/contracts/{id}/export.ics` (resolved deadlines, alarms 7 days and 1 day before) and `/export.csv`.
+- Stretch: `POST /api/obligations/{id}/remind?contract_id=` `{email}` → `{sent, message}` sends one real test
+  email (Resend). `503` when disabled, `422` for anything but one plain address, `429` over 3/hour per IP or the
+  daily cap, `502` if Resend refuses (free tier: only the Resend account's own address). Show `detail` to the user.
+  The SMS preview stays client-side, labelled **Simulated — not sent**.
 - Edges: `source` is `rule` (deterministic) or `llm` (P2). Draw `proposed` dashed, `confirmed` solid; hide
   `rejected` / `auto_rejected` and, by default, `evidence_status: "unverified"`. `propagates` says whether the
   edge feeds downstream impact under the current `reviewed_only`.
@@ -97,6 +101,7 @@ come from different projects.
 | Conflicts (D2): rule flags, notice periods, optional LLM layer, dismiss/reopen | `pipeline/conflicts.py` | done, tested |
 | Analysis cache, `/sample`, seed script | `pipeline/snapshot.py`, `scripts/seed_demo.py` | done, tested; sample seeded in Neon |
 | ICS / CSV export | `api/exports.py` | done, tested |
+| Test email reminder (stretch) | `api/reminders.py` | done, tested; off until `ENABLE_REMINDERS=true` + `RESEND_API_KEY` |
 
 `fixtures/demo_contract.pdf` is a synthetic placeholder until Person B's demo contract lands. After replacing it,
 re-seed: `.\.venv\Scripts\python.exe scripts\seed_demo.py --force`. Do the same after any prompt change.

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import contracts, exports, jobs, review
+from app.api import contracts, exports, jobs, reminders, review
 from app.config import get_settings
 from app.db import init_db, ping
 from app.errors import ConanError, conan_error_handler
@@ -38,6 +38,7 @@ app.include_router(contracts.router)
 app.include_router(jobs.router)
 app.include_router(review.router)
 app.include_router(exports.router)
+app.include_router(reminders.router)
 
 
 @app.get("/api/health", response_model=Health)

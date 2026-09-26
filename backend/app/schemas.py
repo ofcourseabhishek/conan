@@ -330,6 +330,11 @@ class RemindRequest(BaseModel):
     email: str = Field(max_length=254)
 
 
+class RemindResponse(Out):
+    sent: bool
+    message: str
+
+
 class ApiError(Out):
     error_code: ErrorCode
     message: str

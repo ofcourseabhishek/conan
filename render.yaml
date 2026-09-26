@@ -29,6 +29,10 @@ services:
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false
+      - key: ENABLE_REMINDERS
+        value: "false"
+      - key: RESEND_API_KEY
+        sync: false
       - key: BATCH_CHARS
         value: "8000"
       - key: PIPELINE_VERSION

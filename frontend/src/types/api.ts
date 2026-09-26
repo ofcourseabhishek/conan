@@ -249,6 +249,11 @@ export interface RemindRequest {
   email: string;
 }
 
+export interface RemindResponse {
+  sent: boolean;
+  message: string;
+}
+
 export interface ReviewActionOut {
   id: number;
   target_type: "obligation" | "edge" | "event" | "conflict";

@@ -34,6 +34,11 @@ class Settings(BaseSettings):
 
     demo_as_of: str | None = None
     resend_api_key: str | None = None
+    # Resend's free tier sends only from its test domain, and only TO the Resend account owner's
+    # address until a sending domain is verified.
+    reminder_from: str = "Conan <onboarding@resend.dev>"
+    reminders_per_ip_hour: int = 3
+    reminders_per_day: int = 20  # global cap: protects the free-tier quota
     allowed_origins: str = "http://localhost:5173"
     demo_passcode: str | None = None
 
