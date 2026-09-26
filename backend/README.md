@@ -29,7 +29,7 @@ Other scripts, all run from `backend\`:
 ## For Person B (frontend)
 
 - **Types:** `frontend/src/types/api.ts` is generated from `app/schemas.py`. Never edit it by hand; run
-  `..venvScriptspython.exe scriptsexport_types.py` after any schema change and commit both files.
+  `.\.venv\Scripts\python.exe scripts\export_types.py` after any schema change and commit both files.
 - **Fixture:** `frontend/public/offline_fixture.json` (same as `backend/fixtures/demo_analysis.json`) is a
   full `Analysis` with 4 obligations (O-004 → O-007 → O-009 → O-012), 3 edges, 4 events, 1 conflict and an
   audit trail. Offsets and pages are real, so quote highlighting works: highlight
@@ -68,7 +68,7 @@ come from different projects.
 
 ## H0 checks (council conditions)
 
-1. Put your key(s) in `backend/.env`, then `..venvScriptspython.exe scriptsgemini_smoke.py` confirms the model id and the
+1. Put your key(s) in `backend/.env`, then `.\.venv\Scripts\python.exe scripts\gemini_smoke.py` confirms the model id and the
    flat P1 schema. Read RPM/RPD for that model off the AI Studio rate-limit page and set `GEMINI_RPM`.
 2. Render: New → Blueprint → this repo (`render.yaml`). Set `DATABASE_URL` (Neon, `sslmode=require`),
    `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_RPM`, `ALLOWED_ORIGINS` (Vercel URL).
