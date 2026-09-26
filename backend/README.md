@@ -9,7 +9,7 @@ cd backend
 uv venv .venv --python 3.11
 uv pip install --python .venv/Scripts/python.exe -r requirements-dev.txt
 cp .env.example .env          # leave DATABASE_URL empty for local SQLite
-.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
+.venv/Scripts/python -m uvicorn main:app --reload --port 8000   # or app.main:app
 .venv/Scripts/python -m pytest -q
 ```
 
