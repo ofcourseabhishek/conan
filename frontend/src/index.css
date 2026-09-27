@@ -1,111 +1,306 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
-
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1e293b;
+  background: #f8fafc;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
+  font-optical-sizing: auto;
   font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html { min-width: 320px; min-height: 100%; background: #f8fafc; scroll-behavior: smooth; }
+body { min-width: 320px; min-height: 100vh; margin: 0; color: #334155; background: #f8fafc; }
+body, button, input, select, textarea { font-family: inherit; }
+#root { width: 100%; min-height: 100svh; margin: 0 auto; display: flex; flex-direction: column; text-align: left; }
+h1, h2, h3, h4, p { margin-top: 0; }
+h1, h2, h3, h4 { color: #0f172a; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+a { text-decoration: none; }
+button { cursor: pointer; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+button:disabled { cursor: not-allowed; }
+::selection { color: #0f172a; background: #bfdbfe; }
+
+/* Light enterprise tokens for the existing Tailwind component classes. */
+[class~="text-white"] { color: #0f172a; }
+[class~="text-slate-100"], [class~="text-slate-200"], [class~="text-slate-300"] { color: #1e293b; }
+[class~="text-slate-400"] { color: #475569; }
+[class~="text-slate-500"] { color: #64748b; }
+[class*="hover:text-white"]:hover, [class*="group-hover:text-white"]:hover { color: #0f172a; }
+[class*="hover:text-slate-200"]:hover, [class*="group-hover:text-slate-200"]:hover { color: #1e293b; }
+.group:hover [class*="group-hover:text-white"] { color: #1e293b; }
+[class~="bg-slate-950"], [class~="bg-slate-950/40"], [class~="bg-slate-950/55"], [class~="bg-slate-950/70"], [class~="bg-slate-950/80"], [class~="bg-slate-950/95"],
+[class~="bg-slate-900"], [class~="bg-slate-900/40"], [class~="bg-slate-900/50"], [class~="bg-slate-900/60"], [class~="bg-slate-900/70"], [class~="bg-slate-900/80"], [class~="bg-slate-900/90"], [class~="bg-slate-900/95"] { background-color: #ffffff; }
+[class~="bg-slate-850"], [class~="bg-slate-850/60"], [class~="bg-slate-850/80"], [class~="bg-slate-800"], [class~="bg-slate-800/30"], [class~="bg-slate-800/50"], [class~="bg-slate-800/80"], [class~="bg-slate-800/90"], [class~="before:bg-slate-800"] { background-color: #f8fafc; }
+[class~="bg-slate-700"] { background-color: #f1f5f9; }
+[class~="bg-slate-950/60"] { background-color: #f8fafc; }
+.fixed.inset-0 > [class~="bg-slate-950/60"] { background-color: rgba(15, 23, 42, .34); }
+[class~="!bg-slate-900"] { background-color: #ffffff !important; }
+[class~="!bg-slate-800"] { background-color: #f8fafc !important; }
+[class~="hover:bg-slate-700"]:hover, [class~="hover:bg-slate-800"]:hover, [class~="hover:bg-slate-800/40"]:hover { background-color: #f1f5f9; }
+[class*="border-slate-850"], [class*="border-slate-800"], [class*="border-slate-700"] { border-color: #e2e8f0; }
+[class*="border-slate-600"] { border-color: #cbd5e1; }
+
+[class*="bg-rose-950"], [class*="bg-rose-900"] { background-color: #fff1f2; }
+[class*="text-rose-"] { color: #be123c; }
+[class*="border-rose-800"], [class*="border-rose-900"] { border-color: #fecdd3; }
+[class*="bg-amber-950"], [class*="bg-amber-900"], [class*="bg-amber-800"] { background-color: #fffbeb; }
+[class*="text-amber-"] { color: #92400e; }
+[class*="border-amber-800"], [class*="border-amber-900"] { border-color: #fde68a; }
+[class*="bg-yellow-950"], [class*="bg-yellow-900"], [class*="bg-yellow-800"] { background-color: #fefce8; }
+[class*="text-yellow-"] { color: #854d0e; }
+[class*="border-yellow-800"], [class*="border-yellow-900"] { border-color: #fef08a; }
+[class*="bg-emerald-950"], [class*="bg-emerald-900"], [class*="bg-emerald-800"] { background-color: #ecfdf5; }
+[class*="text-emerald-"] { color: #047857; }
+[class*="border-emerald-800"], [class*="border-emerald-900"] { border-color: #a7f3d0; }
+[class*="bg-sky-950"], [class*="bg-sky-900"], [class*="bg-sky-800"] { background-color: #f0f9ff; }
+[class*="text-sky-"] { color: #0369a1; }
+[class*="border-sky-800"], [class*="border-sky-900"] { border-color: #bae6fd; }
+[class*="bg-blue-950"], [class*="bg-blue-900"], [class*="bg-blue-800"] { background-color: #eff6ff; }
+[class*="text-blue-"] { color: #1d4ed8; }
+[class*="border-blue-800"], [class*="border-blue-900"] { border-color: #bfdbfe; }
+[class*="bg-indigo-950"], [class*="bg-indigo-900"], [class*="bg-indigo-800"] { background-color: #eef2ff; }
+[class*="text-indigo-"] { color: #4338ca; }
+[class*="border-indigo-800"], [class*="border-indigo-900"] { border-color: #c7d2fe; }
+[class*="bg-purple-950"], [class*="bg-purple-900"], [class*="bg-purple-800"] { background-color: #faf5ff; }
+[class*="text-purple-"] { color: #7e22ce; }
+[class*="border-purple-800"], [class*="border-purple-900"] { border-color: #e9d5ff; }
+[class*="hover:bg-rose-950"]:hover { background-color: #ffe4e6; }
+[class*="hover:bg-amber-950"]:hover { background-color: #fef3c7; }
+[class*="hover:bg-yellow-950"]:hover { background-color: #fef9c3; }
+[class*="hover:bg-emerald-950"]:hover { background-color: #d1fae5; }
+[class*="hover:bg-sky-950"]:hover { background-color: #e0f2fe; }
+[class*="hover:bg-blue-950"]:hover { background-color: #dbeafe; }
+[class*="hover:bg-indigo-950"]:hover { background-color: #e0e7ff; }
+[class*="hover:bg-purple-950"]:hover { background-color: #f3e8ff; }
+[class*="hover:bg-rose-900"]:hover { background-color: #ffe4e6; }
+[class*="hover:bg-indigo-900"]:hover, [class*="hover:bg-indigo-800"]:hover { background-color: #e0e7ff; }
+
+[class~="text-white"][class*="bg-emerald-700"], [class~="text-white"][class*="bg-emerald-600"],
+[class~="text-white"][class*="bg-rose-800"], [class~="text-white"][class*="bg-rose-700"],
+[class~="text-white"][class*="bg-indigo-600"], [class~="text-white"][class*="bg-indigo-700"], [class~="text-white"][class*="bg-sky-600"],
+[class*="hover:text-white"][class*="bg-emerald-700"]:hover, [class*="hover:text-white"][class*="bg-rose-800"]:hover,
+[class*="hover:text-white"][class*="bg-indigo-600"]:hover, [class*="hover:text-white"][class*="bg-indigo-700"]:hover { color: #ffffff; }
+[class*="from-amber-950"] { --tw-gradient-from: #fffbeb var(--tw-gradient-from-position); --tw-gradient-to: rgb(255 251 235 / 0) var(--tw-gradient-to-position); }
+[class*="via-amber-900"] { --tw-gradient-to: rgb(255 251 235 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), #fef3c7 var(--tw-gradient-via-position), var(--tw-gradient-to); }
+[class*="to-amber-950"] { --tw-gradient-to: #fffbeb var(--tw-gradient-to-position); }
+
+/* Comfortable dashboard text without overpowering dense data views. */
+[class~="text-sm"] { font-size: 15px; line-height: 1.45; }
+[class~="text-xs"] { font-size: 13px; line-height: 1.45; }
+[class*="text-[11px]"] { font-size: 12px; }
+[class*="text-[10px]"] { font-size: 11px; }
+[class*="text-[9px]"] { font-size: 10px; }
+.rounded-xl, .rounded-2xl { box-shadow: 0 1px 3px rgba(15, 23, 42, .06), 0 8px 20px rgba(15, 23, 42, .035); }
+button { transition: color .2s ease, background-color .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.contract-app tbody tr { transition: background-color .2s ease; }
+.contract-app tbody tr:hover { background-color: #f8fafc; }
+[class*="cursor-pointer"] { transition-duration: .2s; transition-timing-function: ease-out; }
+.animate-pulse { animation: none; }
+.contract-app blockquote { border-left-color: #93c5fd; background-color: #f8fafc; color: #334155; }
+.react-flow__node .cursor-pointer:hover { box-shadow: 0 4px 12px rgba(15, 23, 42, .12); }
+.overflow-x-auto { scrollbar-color: #cbd5e1 #f1f5f9; scrollbar-width: thin; }
+table { border-collapse: separate; border-spacing: 0; }
+th { letter-spacing: .045em; }
+td, th { vertical-align: top; }
+input, select, textarea { color-scheme: light; }
+input::placeholder, textarea::placeholder { color: #94a3b8; }
+
+/* React Flow retains its full controls on the lighter dashboard canvas. */
+.react-flow { background: #f8fafc; }
+.react-flow__controls { overflow: hidden; border: 1px solid #cbd5e1 !important; border-radius: 8px !important; box-shadow: 0 1px 3px rgba(15,23,42,.1) !important; }
+.react-flow__controls-button { background: #ffffff !important; border-color: #e2e8f0 !important; fill: #475569 !important; }
+.react-flow__controls-button:hover { background: #f1f5f9 !important; }
+.react-flow__minimap { overflow: hidden; border: 1px solid #cbd5e1 !important; border-radius: 8px !important; }
+
+@media (max-width: 1023px) {
+  .contract-sidebar nav { scrollbar-width: thin; }
+}
+@media (max-width: 640px) {
+  .react-flow__minimap { display: none; }
+}
+
+/* Contract workspace refinements: keep the existing utility-driven views,
+   while giving their shared shell and dense review surfaces a consistent rhythm. */
+.contract-app {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+  color: #334155;
+  background: #f6f8fb;
+}
+.contract-app > .mx-auto {
+  width: 100%;
+  min-width: 0;
+  max-width: 1760px;
+}
+.contract-sidebar {
+  z-index: 20;
+  box-shadow: 1px 0 0 rgba(148, 163, 184, .08);
+}
+.contract-sidebar nav a {
+  min-height: 40px;
+  transition: color .18s ease, background-color .18s ease, box-shadow .18s ease;
+}
+.contract-sidebar nav a[aria-current="page"] {
+  box-shadow: inset 2px 0 0 #2563eb;
+}
+.contract-app main > div {
+  width: 100%;
+  min-width: 0;
+  max-width: 1320px;
+}
+.contract-app main h1 {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  letter-spacing: -.035em;
+}
+.contract-app main > div > .rounded-2xl {
+  border-color: #e2e8f0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 10px 28px rgba(15, 23, 42, .045);
+}
+.overview-metric {
+  display: flex;
+  min-height: 142px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #e2e8f0;
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: #fff;
+  padding: 16px 18px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .035);
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.overview-metric:hover {
+  transform: translateY(-2px);
+  border-top-color: #cbd5e1;
+  border-right-color: #cbd5e1;
+  border-bottom-color: #cbd5e1;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, .08);
+}
+.overview-metric-label {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.overview-metric-value {
+  color: #0f172a;
+  font-size: 32px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  letter-spacing: -.045em;
+  line-height: 1;
+}
+.overview-metric-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #64748b;
+  font-size: 12px;
+}
+.overview-metric:hover .overview-metric-note { color: #1d4ed8; }
+.overview-card {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .035), 0 5px 16px rgba(15, 23, 42, .025);
+}
+.overview-card > div > h2,
+.overview-card h2 {
+  letter-spacing: -.02em;
+}
+.contract-app .overflow-x-auto > table {
+  min-width: 1120px;
+}
+.contract-app table th {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+.contract-app table td {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+.contract-app .fixed.inset-0 aside {
+  box-shadow: -16px 0 48px rgba(15, 23, 42, .14);
+}
+.contract-app .bg-gradient-to-r.from-amber-950\/70 {
+  background: #fffbeb;
+  border-color: #fde68a;
+  box-shadow: none;
+}
+.contract-app table thead {
+  background: #f8fafc;
+}
+.contract-app tbody tr:hover td {
+  background-color: #f8fafc;
+}
+.contract-app tbody td {
+  border-color: #eef2f7;
+}
+.contract-app input:not([type="checkbox"]),
+.contract-app select,
+.contract-app textarea {
+  border-radius: 8px;
+  background-color: #fff;
+}
+.contract-app [role="dialog"],
+.contract-app aside[aria-label="Source Inspection"],
+.contract-app aside[aria-label="Obligation Review"] {
+  background: #fff;
+}
+.contract-app .fixed.inset-0 aside > .sticky {
+  background: rgba(255, 255, 255, .96);
+  border-color: #e2e8f0;
+}
+.contract-app blockquote {
+  border: 1px solid #dbeafe;
+  border-left: 3px solid #60a5fa;
+  border-radius: 10px;
+  padding: 16px;
+}
+.contract-app .react-flow__edge-text {
+  fill: #475569;
+}
+.contract-app .react-flow__edge-textbg {
+  fill: #fff;
+  stroke: #e2e8f0;
+}
+.contract-app .react-flow__controls-button svg {
+  fill: #475569;
+}
+.contract-app .react-flow__minimap {
+  background: #fff !important;
+  border-color: #e2e8f0 !important;
+}
+
+@media (max-width: 1023px) {
+  .contract-sidebar {
+    position: sticky;
+    top: 0;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, .06);
+  }
+  .contract-sidebar nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .contract-sidebar nav::-webkit-scrollbar { display: none; }
+}
+@media (max-width: 639px) {
+  .overview-metric { min-height: 124px; padding: 14px; }
+  .overview-metric-value { font-size: 28px; }
 }

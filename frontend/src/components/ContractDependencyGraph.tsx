@@ -134,7 +134,7 @@ export const ObligationCustomNode: React.FC<NodeProps<Node<ObligationNodeData>>>
   return (
     <div
       onClick={handleSelect}
-      className="w-[280px] rounded-xl border border-slate-700/90 bg-slate-900/95 p-3.5 shadow-lg hover:border-indigo-500/80 transition-all cursor-pointer group text-left relative"
+      className="w-[280px] rounded-xl border border-slate-200 bg-white p-3.5 shadow-md hover:border-indigo-300 transition-all cursor-pointer group text-left relative"
     >
       {/* Target handle for incoming edges */}
       <Handle
@@ -491,9 +491,9 @@ export const ContractDependencyGraph: React.FC<ContractDependencyGraphProps> = (
   }, []);
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/70 overflow-hidden shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
       {/* Header bar */}
-      <div className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-800/80 bg-slate-900/90">
+      <div className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 bg-slate-50">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-sky-950/80 border border-sky-800/80 flex items-center justify-center text-sky-300 shrink-0">
             <svg
@@ -758,7 +758,7 @@ export const ContractDependencyGraph: React.FC<ContractDependencyGraphProps> = (
               </p>
             </div>
           ) : (
-            <div className="relative h-[550px] w-full border-t border-slate-800/80 bg-slate-950/60">
+            <div className="relative h-[550px] w-full border-t border-slate-200 bg-slate-50">
               <ReactFlow
                 nodes={nodes}
                 edges={flowEdges}
@@ -773,7 +773,7 @@ export const ContractDependencyGraph: React.FC<ContractDependencyGraphProps> = (
                 proOptions={{ hideAttribution: true }}
               >
                 <Background
-                  color="#334155"
+                  color="#cbd5e1"
                   gap={18}
                   size={1}
                   variant={BackgroundVariant.Dots}
@@ -784,7 +784,7 @@ export const ContractDependencyGraph: React.FC<ContractDependencyGraphProps> = (
                 />
                 <MiniMap
                   nodeColor="#475569"
-                  maskColor="rgba(15, 23, 42, 0.75)"
+                  maskColor="rgba(248, 250, 252, 0.75)"
                   className="!bg-slate-900 !border !border-slate-800 !rounded-lg overflow-hidden"
                 />
 

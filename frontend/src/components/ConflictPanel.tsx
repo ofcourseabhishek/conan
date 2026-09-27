@@ -137,7 +137,7 @@ export const ConflictPanel: React.FC<ConflictPanelProps> = ({
   }
 
   return (
-    <div className="rounded-xl border border-amber-900/60 bg-slate-900/80 overflow-hidden shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
       {/* Header bar */}
       <div className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-800 bg-slate-900/90">
         <div className="flex items-center gap-3">
@@ -285,10 +285,10 @@ export const ConflictPanel: React.FC<ConflictPanelProps> = ({
                 return (
                   <div
                     key={conflict.id}
-                    className={`rounded-xl border transition-all ${
+                    className={`rounded-xl border transition-colors duration-200 ${
                       isDismissed
-                        ? 'border-slate-800 bg-slate-900/40 opacity-75'
-                        : 'border-amber-900/50 bg-slate-900/90 shadow-sm'
+                        ? 'border-slate-200 bg-slate-50 opacity-80'
+                        : 'border-l-4 border-l-rose-300 border-y-slate-200 border-r-slate-200 bg-white shadow-sm'
                     }`}
                   >
                     {/* Conflict Card Header */}

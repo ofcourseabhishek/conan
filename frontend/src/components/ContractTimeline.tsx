@@ -198,9 +198,9 @@ export const ContractTimeline: React.FC<ContractTimelineProps> = ({
   const totalActionable = unresolvedTriggerObligations.length + unresolvedEvents.length;
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/70 overflow-hidden shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
       {/* Header bar */}
-      <div className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-800/80 bg-slate-900/90">
+      <div className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 bg-slate-50">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-indigo-950/80 border border-indigo-800/80 flex items-center justify-center text-indigo-300 shrink-0">
             <svg
@@ -304,7 +304,7 @@ export const ContractTimeline: React.FC<ContractTimelineProps> = ({
 
           {/* Section: Unresolved Triggers & Actionable Deadlines */}
           {(unresolvedTriggerObligations.length > 0 || unresolvedEvents.length > 0) && (
-            <div className="rounded-xl border border-amber-900/60 bg-amber-950/20 p-4 space-y-3">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                 <h3 className="text-xs font-mono uppercase tracking-wider text-amber-300 font-semibold">
@@ -325,7 +325,7 @@ export const ContractTimeline: React.FC<ContractTimelineProps> = ({
                   return (
                     <div
                       key={ob.id}
-                      className="p-3.5 rounded-lg border border-amber-900/50 bg-slate-900/80 space-y-2.5"
+                      className="p-3.5 rounded-lg border border-amber-200 bg-white space-y-2.5 shadow-sm"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="space-y-0.5">
@@ -415,7 +415,7 @@ export const ContractTimeline: React.FC<ContractTimelineProps> = ({
                   return (
                     <div
                       key={ev.key}
-                      className="p-3.5 rounded-lg border border-slate-800 bg-slate-900/80 space-y-2.5"
+                      className="p-3.5 rounded-lg border border-slate-200 bg-white space-y-2.5 shadow-sm"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -516,7 +516,7 @@ export const ContractTimeline: React.FC<ContractTimelineProps> = ({
 
           {/* Other unresolved obligations (e.g. conditional_pending) */}
           {otherUnresolvedObligations.length > 0 && (
-            <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 space-y-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
               <h3 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold">
                 Other Pending Deadlines ({otherUnresolvedObligations.length})
               </h3>
@@ -584,7 +584,7 @@ export const ContractTimeline: React.FC<ContractTimelineProps> = ({
                       />
 
                       {/* Timeline Card */}
-                      <div className="p-4 rounded-xl border border-slate-800/90 bg-slate-900/90 hover:border-slate-700 transition-colors space-y-2">
+                      <div className="p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-colors space-y-2 shadow-sm">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
                           <div className="flex items-center gap-2 flex-wrap">
                             {/* Date Badge */}
