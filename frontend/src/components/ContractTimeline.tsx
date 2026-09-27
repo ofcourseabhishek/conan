@@ -3,7 +3,6 @@ import type {
   ObligationOut,
   EventOut,
   EdgeOut,
-  EventKey,
 } from '../types/api';
 import { useUpdateEvent } from '../hooks/useObligations';
 
@@ -72,6 +71,18 @@ export const ContractTimeline: React.FC<ContractTimelineProps> = ({
     const map = new Map<string, EventOut>();
     for (const ev of events) {
       map.set(ev.key, ev);
+    }
+    return map;
+  }, [events]);
+
+  // Event each obligation waits on, from the API's dependent_obligation_ids. Per-obligation events are keyed
+  // "other:O-012" / "notice_given:O-015", so the raw trigger_event is not a usable key for those.
+  const eventByObligation = useMemo(() => {
+    const map = new Map<string, EventOut>();
+    for (const ev of events) {
+      for (const id of ev.dependent_obligation_ids) {
+        map.set(id, ev);
+      }
     }
     return map;
   }, [events]);
@@ -318,8 +329,9 @@ export const ContractTimeline: React.FC<ContractTimelineProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                 {/* 1. Obligations with resolution_status === 'unresolved_trigger' */}
                 {unresolvedTriggerObligations.map((ob) => {
-                  const targetEventKey = ob.trigger_event as EventKey | null;
-                  const matchingEvent = targetEventKey ? eventMap.get(targetEventKey) : undefined;
+                  const matchingEvent =
+                    eventByObligation.get(ob.id) ?? (ob.trigger_event ? eventMap.get(ob.trigger_event) : undefined);
+                  const targetEventKey = matchingEvent?.key ?? null;
                   const isEditingThis = editingEventKey === targetEventKey;
 
                   return (
@@ -349,7 +361,7 @@ export const ContractTimeline: React.FC<ContractTimelineProps> = ({
                       {/* Trigger explanation */}
                       <div className="text-[11px] text-amber-200/90 bg-amber-950/40 p-2 rounded border border-amber-900/40">
                         <span className="font-semibold text-amber-300">Trigger needed: </span>
-                        {ob.trigger_label || ob.trigger_event || 'Specific contract event'}
+                        {ob.trigger_label || matchingEvent?.label || ob.trigger_event || 'Specific contract event'}
                         {ob.deadline_rule?.raw_text && (
                           <div className="text-[10px] text-slate-400 mt-0.5 italic">
                             Rule: &ldquo;{ob.deadline_rule.raw_text}&rdquo;
