@@ -30,11 +30,12 @@ Other scripts, all run from `backend\`:
 
 - **Types:** `frontend/src/types/api.ts` is generated from `app/schemas.py`. Never edit it by hand; run
   `.\.venv\Scripts\python.exe scripts\export_types.py` after any schema change and commit both files.
-- **Fixture:** `frontend/public/offline_fixture.json` (same as `backend/fixtures/demo_analysis.json`) is a
-  full `Analysis` with 4 obligations (O-004 → O-007 → O-009 → O-012), 3 edges, 4 events, 1 conflict and an
-  audit trail. Offsets and pages are real, so quote highlighting works: highlight
+- **Offline fixture:** `frontend/public/offline_fixture.json` is the real 8-page demo analysis (20 obligations,
+  18 links, the §6.3 vs Sch. B conflict) with a few reviewer-set dates, read for `as_of` 2026-10-28. Regenerate it
+  after re-seeding with `.\.venv\Scripts\python.exe scripts\export_offline_fixture.py`. Offsets and pages are real,
+  so quote highlighting works: highlight
   `clause.text.slice(o.evidence_start - clause.char_start, o.evidence_end - clause.char_start)`.
-  Regenerate with `scripts/make_fixture.py`.
+  (`backend/fixtures/demo_analysis.json` is the small hand-written test fixture from `scripts/make_fixture.py`.)
 - **Live today:** `GET /api/health`, `POST /api/contracts` (multipart `file`), `GET /api/jobs/{id}`,
   `GET /api/contracts/{id}/analysis?as_of=&reviewed_only=`, `DELETE /api/contracts/{id}`, and the mutations below.
   Every mutation accepts `?as_of=&reviewed_only=` and returns the full updated `Analysis` (replace your cache entry):

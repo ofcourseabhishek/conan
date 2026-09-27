@@ -171,7 +171,9 @@ def resolve(o, events: dict[str, EventDate]) -> Resolution:
             return Resolution("resolved", occ[0], prov,
                               f"{head}: end of each calendar {_PERIOD[name]} from {ends[0]}{gap} → {occ[0]}, "
                               f"then every {_PERIOD[name]}", occ)
-        first, desc = (apply_offset(anchor.date, offset, direction) if offset else (anchor.date + freq, name))
+        # A 0-day gap ("renew annually on or before the anniversary") means each anniversary, not the start date.
+        first, desc = (apply_offset(anchor.date, offset, direction) if offset and offset.get("value")
+                       else (anchor.date + freq, name))
         occ = [first + freq * k for k in range(n)]
         return Resolution("resolved", occ[0], prov, f"{head} + {desc}, repeating {name} → {occ[0]}", occ)
 
