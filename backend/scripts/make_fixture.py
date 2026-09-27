@@ -1,7 +1,8 @@
 """Build the hand-written 4-obligation fixture (H0-1) from the Pydantic API models, so it can
 never drift from the contract. Writes:
   backend/fixtures/demo_analysis.json
-  frontend/public/offline_fixture.json   (offline mode; replaced by the full sample at H16-19)
+(Backend test fixture only. The frontend's offline_fixture.json is the real demo analysis, written by
+scripts/export_offline_fixture.py.)
 
 Mirrors the delivery -> acceptance -> invoice -> payment chain of the demo contract (plan §9, §13).
 Risk rows are hand-computed from the §9 table; asserts below keep the totals honest.
@@ -255,7 +256,7 @@ analysis = Analysis(
 
 root = Path(__file__).resolve().parents[2]
 payload = json.dumps(analysis.model_dump(mode="json"), indent=2, ensure_ascii=False) + "\n"
-for out in (root / "backend/fixtures/demo_analysis.json", root / "frontend/public/offline_fixture.json"):
+for out in (root / "backend/fixtures/demo_analysis.json",):
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(payload, encoding="utf-8")
     print("wrote", out.relative_to(root))

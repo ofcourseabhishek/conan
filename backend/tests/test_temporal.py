@@ -193,3 +193,13 @@ def test_notices_are_per_obligation():
     assert event_key("O-001", "delivery") == "delivery"
     assert event_label("notice_given", None, "O-015") == "Notice given (O-015)"
     assert event_label("other", "end of month", "O-001") == "end of month"
+
+
+def test_recurring_zero_gap_means_each_anniversary():
+    """Demo §9.2: 'renew all required policies annually on or before the anniversary of the Effective Date'
+    came back recurring with a 0-day gap; the first occurrence is the first anniversary, not day one."""
+    rule = rel(0, day_type="unspecified", anchor="effective_date")
+    rule.update(kind="recurring", recurrence="annually")
+    r = resolve(ob(rule), {"effective_date": ev(D(2026, 9, 1))})
+    assert r.next_occurrences == [D(2027, 9, 1), D(2028, 9, 1), D(2029, 9, 1)]
+    assert "0 calendar days" not in r.trace and "repeating annually" in r.trace
