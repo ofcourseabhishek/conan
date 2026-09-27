@@ -2,15 +2,12 @@ import type {
   Analysis,
   ApiError,
   ConflictReviewRequest,
-  EdgeOut,
   EdgeReviewRequest,
   EventDateRequest,
-  EventOut,
   Health,
   JobOut,
-  ObligationOut,
-  ObligationPatch,
   ObligationReviewRequest,
+  ObligationStatusRequest,
   UploadResponse,
 } from '../types/api';
 
@@ -60,6 +57,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error(errorMessage);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return response.json() as Promise<T>;
 }
 
@@ -86,21 +86,32 @@ export async function getContractAnalysis(contractId: string): Promise<Analysis>
   return request<Analysis>(`/api/contracts/${encodeURIComponent(contractId)}/analysis`);
 }
 
-export async function patchObligation(
-  obligationId: string,
-  patch: ObligationPatch
-): Promise<ObligationOut> {
-  return request<ObligationOut>(`/api/obligations/${encodeURIComponent(obligationId)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(patch),
+export async function deleteContract(contractId: string): Promise<void> {
+  return request<void>(`/api/contracts/${encodeURIComponent(contractId)}`, {
+    method: 'DELETE',
   });
 }
 
+// Obligation IDs (O-001…) are only unique within a contract, so these routes need contract_id.
 export async function reviewObligation(
+  contractId: string,
   obligationId: string,
   body: ObligationReviewRequest
 ): Promise<Analysis> {
-  return request<Analysis>(`/api/obligations/${encodeURIComponent(obligationId)}`, {
+  const query = `contract_id=${encodeURIComponent(contractId)}`;
+  return request<Analysis>(`/api/obligations/${encodeURIComponent(obligationId)}?${query}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function setObligationStatus(
+  contractId: string,
+  obligationId: string,
+  body: ObligationStatusRequest
+): Promise<Analysis> {
+  const query = `contract_id=${encodeURIComponent(contractId)}`;
+  return request<Analysis>(`/api/obligations/${encodeURIComponent(obligationId)}/status?${query}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   });
@@ -119,8 +130,8 @@ export async function reviewConflict(
 export async function patchEdge(
   edgeId: string,
   body: EdgeReviewRequest
-): Promise<EdgeOut> {
-  return request<EdgeOut>(`/api/edges/${encodeURIComponent(edgeId)}`, {
+): Promise<Analysis> {
+  return request<Analysis>(`/api/edges/${encodeURIComponent(edgeId)}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   });
@@ -130,8 +141,8 @@ export async function updateEvent(
   contractId: string,
   key: string,
   body: EventDateRequest
-): Promise<EventOut> {
-  return request<EventOut>(`/api/contracts/${encodeURIComponent(contractId)}/events/${encodeURIComponent(key)}`, {
+): Promise<Analysis> {
+  return request<Analysis>(`/api/contracts/${encodeURIComponent(contractId)}/events/${encodeURIComponent(key)}`, {
     method: 'PUT',
     body: JSON.stringify(body),
   });
