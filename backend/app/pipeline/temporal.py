@@ -46,15 +46,28 @@ class Resolution:
     next_occurrences: list[dt.date] = field(default_factory=list)
 
 
+# Too generic to share: one contract has delay notices, defect notices, renewal notices and termination
+# notices, and merging them re-dates unrelated deadlines (eval run #1 on the demo contract). Like 'other',
+# these are keyed per obligation and never chained by the rule edges.
+PER_OBLIGATION_EVENTS = {"other", "notice_given"}
+
+
+def is_per_obligation(event: str | None) -> bool:
+    return event in PER_OBLIGATION_EVENTS
+
+
 def event_key(obligation_id: str, event: str | None) -> str | None:
-    """'other' events are keyed per obligation so they never merge automatically."""
+    """Per-obligation events ('other', 'notice_given') never merge automatically."""
     if not event:
         return None
-    return f"other:{obligation_id}" if event == "other" else event
+    return f"{event}:{obligation_id}" if is_per_obligation(event) else event
 
 
-def event_label(event: str, trigger_label: str | None) -> str:
-    return (trigger_label or "Other event")[:80] if event == "other" else EVENT_LABELS.get(event, event)
+def event_label(event: str, trigger_label: str | None, obligation_id: str | None = None) -> str:
+    if event == "other":
+        return (trigger_label or "Other event")[:80]
+    label = EVENT_LABELS.get(event, event)
+    return f"{label} ({obligation_id})" if is_per_obligation(event) and obligation_id else label
 
 
 def add_business_days(d: dt.date, n: int) -> dt.date:

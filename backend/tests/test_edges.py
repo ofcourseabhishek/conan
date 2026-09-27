@@ -182,3 +182,13 @@ def test_edit_refreshes_rule_edges_via_api(seeded):  # noqa: F811
     chain = {(e["upstream_id"], e["downstream_id"]) for e in a["edges"] if e["relation"] == "must_precede"}
     assert ("O-003", "O-004") not in chain  # O-004 no longer waits on invoice_receipt
     assert by_id(a)["O-004"]["resolution_status"] == "unresolved_trigger"
+
+
+def test_generic_notices_are_not_chained():
+    """Eval run #1: delay, dispute, renewal and rejection notices all 'produce notice_given', which linked a
+    renewal notice to repairing defective goods. Notices are per obligation; real links come from P2."""
+    doc, clauses, pages = _doc()
+    obls = [o("O-013", "C03", "term_end", "notice_given"), o("O-006", "C05", "notice_given", "delivery"),
+            o("O-015", "C09", "notice_given", "termination"), o("O-019", "C12", "termination", None)]
+    edges = rule_edges(CID, obls, clauses, pages)
+    assert {(e.upstream_id, e.downstream_id) for e in edges if e.relation == "must_precede"} == {("O-015", "O-019")}

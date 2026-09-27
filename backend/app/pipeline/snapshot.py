@@ -19,6 +19,7 @@ from app.config import get_settings
 from app.models import AnalysisCache, Clause, Conflict, Contract, Edge, Event, Job, Obligation, Page
 from app.pipeline.edges import P2_SYSTEM
 from app.pipeline.extract import P1_SYSTEM
+from app.pipeline.recompute import recompute, refresh_rules
 from app.schemas import STAGES
 
 _CHILDREN = {"pages": Page, "clauses": Clause, "obligations": Obligation, "edges": Edge, "events": Event,
@@ -79,6 +80,8 @@ def clone(s: Session, cached: AnalysisCache, *, name: str | None = None, is_samp
     s.flush()
     cid = contract.id
     for key, model in _CHILDREN.items():
+        if key == "events":
+            continue  # re-created below by recompute (the snapshot's events carry no dates anyway)
         for data in snap.get(key, []):
             data = {**data, "contract_id": cid}
             if key in ("edges", "conflicts"):
@@ -86,6 +89,11 @@ def clone(s: Session, cached: AnalysisCache, *, name: str | None = None, is_samp
             if key == "obligations":
                 data.update(review_state="proposed", status="open", completed_on=None)
             s.add(model.model_validate(data))
+    s.flush()
+    # Events, rule edges, rule conflicts and dates are deterministic: re-derive them with the current code,
+    # so a fix to those rules reaches an already-cached sample without re-running the LLM.
+    refresh_rules(s, cid)
+    recompute(s, cid)
     job = Job(contract_id=cid, state="done", stage="done", stage_index=len(STAGES) - 1,
               stage_count=len(STAGES), progress_pct=100, message="Cached analysis")
     s.add(job)

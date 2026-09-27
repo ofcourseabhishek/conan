@@ -14,7 +14,7 @@ from app.api.assemble import build_analysis, get_contract_or_404, resolve_as_of
 from app.db import get_session
 from app.models import Conflict, Edge, Event, Obligation, ReviewAction
 from app.pipeline.recompute import recompute, refresh_rules
-from app.pipeline.temporal import event_key
+from app.pipeline.temporal import event_key, is_per_obligation
 from app.schemas import (
     Analysis, ConflictReviewRequest, EdgeReviewRequest, EventDateRequest, ObligationReviewRequest,
     ObligationStatusRequest,
@@ -90,7 +90,7 @@ def set_obligation_status(obligation_id: str, body: ObligationStatusRequest, con
                           s: Session = Depends(get_session)) -> Analysis:
     o = _obligation(s, contract_id, obligation_id)
     before = {"status": o.status, "completed_on": _jsonable(o.completed_on)}
-    produced = event_key(o.id, o.produces_event) if o.produces_event != "other" else None
+    produced = event_key(o.id, o.produces_event) if not is_per_obligation(o.produces_event) else None
     ev = s.get(Event, (contract_id, produced)) if produced else None
 
     if body.status == "done":

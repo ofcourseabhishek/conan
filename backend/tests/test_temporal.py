@@ -185,3 +185,11 @@ def test_zero_gap_period_end_is_clean():
            penalty_text=None, amount=None, category="other", deadline_rule=rule, evidence_status="verified",
            confidence=0.9)
     assert "Day type unspecified" not in [f.factor for f in score_all([o], [], [], D(2026, 10, 28))["O-1"].factors]
+
+
+def test_notices_are_per_obligation():
+    from app.pipeline.temporal import event_key, event_label
+    assert event_key("O-015", "notice_given") == "notice_given:O-015" != event_key("O-006", "notice_given")
+    assert event_key("O-001", "delivery") == "delivery"
+    assert event_label("notice_given", None, "O-015") == "Notice given (O-015)"
+    assert event_label("other", "end of month", "O-001") == "end of month"

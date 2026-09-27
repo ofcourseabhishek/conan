@@ -21,6 +21,7 @@ from app.errors import ConanError
 from app.models import Edge
 from app.pipeline.gemini import GeminiClient
 from app.pipeline.llm_schemas import P2Conflict, P2Edge, P2Response
+from app.pipeline.temporal import is_per_obligation
 from app.pipeline.verify import _search, normalize, page_of
 
 log = logging.getLogger("conan.edges")
@@ -91,11 +92,11 @@ def rule_edges(contract_id: uuid.UUID, obligations, clauses, page_offsets) -> li
     # event chain: A produces X, B is triggered by X
     producers = defaultdict(list)
     for o in obls:
-        if o.produces_event and o.produces_event != "other":
+        if o.produces_event and not is_per_obligation(o.produces_event):
             producers[o.produces_event].append(o)
     for b in obls:
         trig = (b.deadline_rule or {}).get("anchor_event") or b.trigger_event
-        if not trig or trig == "other":
+        if not trig or is_per_obligation(trig):
             continue
         for a in producers.get(trig, []):
             if a.id == b.id:

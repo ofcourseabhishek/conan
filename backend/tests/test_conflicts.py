@@ -45,9 +45,11 @@ def test_other_kinds_and_non_conflicts():
     [c] = rule_conflicts(CID, [o("A", "C08", amount={"value": 1840000, "currency": "INR"}),
                                o("B", "C10", amount={"value": 1900000, "currency": "INR"})], CLAUSES)
     assert c.kind == "amount_mismatch" and "INR 1,840,000" in c.description
-    assert rule_conflicts(CID, [o("A", "C08"), o("B", "C08", 45)], CLAUSES) == []  # same clause: not a conflict
-    assert rule_conflicts(CID, [o("A", "C08"), o("B", "C10", 45, actor="Velloran Components LLP")], CLAUSES) == []
-    assert rule_conflicts(CID, [o("A", "C08"), o("B", "C10", 45, review_state="rejected")], CLAUSES) == []
+    # pairwise checks below use a Schedule B without "Net N" text, so the payment-terms rule stays out of it
+    no_net = [CLAUSES[0], NS(id="C10", section_ref="Sch. B", page_start=3, text="Commercial terms.")] + CLAUSES[2:]
+    assert rule_conflicts(CID, [o("A", "C08"), o("B", "C08", 45)], no_net) == []  # same clause: not a conflict
+    assert rule_conflicts(CID, [o("A", "C08"), o("B", "C10", 45, actor="Velloran Components LLP")], no_net) == []
+    assert rule_conflicts(CID, [o("A", "C08"), o("B", "C10", 45, review_state="rejected")], no_net) == []
     assert action_stem("make payment of") == "pay" and action_stem("remit") == "pay"
 
 
@@ -111,3 +113,23 @@ def test_conflict_dismiss_survives_recompute_and_reopens(seeded):  # noqa: F811
     assert a["conflicts"][0]["status"] == "dismissed"  # survives recompute
     a = client.patch(f"/api/conflicts/{c['id']}", json={"action": "reopen"}).json()
     assert a["conflicts"][0]["status"] == "open"
+
+
+
+def test_schedule_net_terms_without_an_obligation():
+    """Eval run #1: 'Payment terms: Net 45' in Schedule B produced no obligation, so the planted conflict
+    vanished. The payment-terms rule compares the schedule text with the payment obligation directly."""
+    sched = NS(id="C33", section_ref="Sch. B", page_start=8,
+               text="SCHEDULE B - COMMERCIAL TERMS\nPayment terms: Net 45 from the date of invoice. Payment Terms: "
+                    "Net 45. Currency: Indian Rupees (INR).")
+    pay = o("O-008", "C08", 30, "calendar", page_start=4)
+    [c] = rule_conflicts(CID, [pay], [CLAUSES[0], sched])
+    assert c.kind == "offset_mismatch" and c.obligation_ids == ["O-008"] and c.clause_b == "C33"
+    assert c.quote_b == "Payment terms: Net 45 from the date of invoice."
+    assert "Sch. B (p. 8) states payment terms of Net 45" in c.description and "does not determine" in c.description
+    assert rule_conflicts(CID, [o("O-008", "C08", 45)], [CLAUSES[0], sched]) == []  # terms agree
+    dispute = o("O-009", "C08", 10, "business", action="notify and pay")
+    assert rule_conflicts(CID, [dispute], [CLAUSES[0], sched]) == []  # not a payment term
+    # schedule has its own payment obligation: only the pairwise conflict, not a second copy
+    both = rule_conflicts(CID, [pay, o("O-020", "C33", 45)], [CLAUSES[0], sched])
+    assert [(x.kind, x.obligation_ids) for x in both] == [("offset_mismatch", ["O-008", "O-020"])]

@@ -114,6 +114,37 @@ def rule_conflicts(contract_id: uuid.UUID, obligations, clauses) -> list[Conflic
                     description=f"{_describe(a, sections)}; {_describe(b, sections)}. {COPY_TAIL}",
                     quote_a=a.evidence_quote, quote_b=b.evidence_quote))
     out += _notice_conflicts(contract_id, active, clauses, sections)
+    out += _payment_term_conflicts(contract_id, active, clauses, sections)
+    return out
+
+
+_NET = re.compile(r"\bnet\s*(\d{1,3})\b", re.I)
+
+
+def _payment_term_conflicts(contract_id, active, clauses, sections) -> list[Conflict]:
+    """'Payment terms: Net 45' in a schedule has no actor, so the model rightly doesn't extract it as an
+    obligation; compare it with the payment obligations directly. Skipped for a clause that already has its
+    own payment obligation, which the pairwise rule above covers."""
+    payers = [o for o in active if action_stem(o.action) == "pay" and o.trigger_event in (None, "invoice_receipt")
+              and _days((o.deadline_rule or {}).get("offset")) is not None]
+    paying_clauses = {o.clause_id for o in payers}
+    out = []
+    for c in clauses:
+        m = _NET.search(c.text)
+        if not m or c.id in paying_clauses:
+            continue
+        net = int(m.group(1))
+        s = max(c.text.rfind(".", 0, m.start()) + 1, c.text.rfind("\n", 0, m.start()) + 1, m.start() - 120)
+        e = c.text.find(".", m.end())
+        quote = " ".join(c.text[s:e + 1 if e != -1 else len(c.text)].split())
+        for o in payers:
+            if _days((o.deadline_rule or {}).get("offset")) != net:
+                out.append(Conflict(
+                    contract_id=contract_id, kind="offset_mismatch", source="rule", obligation_ids=[o.id],
+                    clause_a=o.clause_id, clause_b=c.id,
+                    description=(f"{_describe(o, sections)}; {sections[c.id]} (p. {c.page_start}) states payment "
+                                 f"terms of Net {net}. {COPY_TAIL}"),
+                    quote_a=o.evidence_quote, quote_b=quote))
     return out
 
 

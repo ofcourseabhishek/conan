@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 from app.models import Clause, Conflict, Edge, Event, Obligation, Page
 from app.pipeline.conflicts import merge_rule_conflicts, rule_conflicts
 from app.pipeline.edges import refresh_rule_edges, rule_edges
-from app.pipeline.temporal import EventDate, event_key, event_label, resolve
+from app.pipeline.temporal import EventDate, event_key, event_label, is_per_obligation, resolve
 
 
 def sync_events(s: Session, contract_id: uuid.UUID, obligations: list[Obligation]) -> dict[str, Event]:
@@ -21,11 +21,11 @@ def sync_events(s: Session, contract_id: uuid.UUID, obligations: list[Obligation
         anchor = (o.deadline_rule or {}).get("anchor_event") or o.trigger_event
         for ev, produced in ((anchor, False), (o.produces_event, True)):
             key = event_key(o.id, ev)
-            if key is None or (produced and ev == "other"):
-                continue  # an 'other' produced event can't be matched to anything
+            if key is None or (produced and is_per_obligation(ev)):
+                continue  # a per-obligation produced event can't be matched to anything
             row = events.get(key)
             if row is None:
-                row = Event(contract_id=contract_id, key=key, label=event_label(ev, o.trigger_label))
+                row = Event(contract_id=contract_id, key=key, label=event_label(ev, o.trigger_label, o.id))
                 events[key] = row
                 s.add(row)
             if produced and row.source_obligation_id is None:
