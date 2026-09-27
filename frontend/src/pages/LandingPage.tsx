@@ -33,7 +33,7 @@ export default function LandingPage() {
               Upload Contract
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </Link>
-            <Link to="/upload" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-slate-700 bg-slate-900/70 px-5 py-3 text-sm font-medium text-slate-200 transition hover:border-slate-600 hover:bg-slate-800">
+            <Link to="/upload?sample=1" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-slate-700 bg-slate-900/70 px-5 py-3 text-sm font-medium text-slate-200 transition hover:border-slate-600 hover:bg-slate-800">
               Try Sample Contract
             </Link>
           </div>

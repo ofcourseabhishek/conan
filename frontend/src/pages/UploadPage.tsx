@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCreateSampleContract, useUploadContract } from '../hooks/useContract';
 import { useHealth } from '../hooks/useObligations';
 import { useJob } from '../hooks/useJob';
@@ -9,6 +9,8 @@ const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoSampleStarted = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -141,12 +143,20 @@ export const UploadPage: React.FC = () => {
         }
       },
       onError: (err: Error) => {
-        setUploadError(
-          `${err.message || 'Could not load the sample contract.'} The offline demo below still works without the server.`
-        );
+        const reason = (err.message || 'Could not load the sample contract.').replace(/\.?$/, '.');
+        setUploadError(`${reason} The offline demo below still works without the server.`);
       },
     });
   };
+
+  // Landing page "Try Sample Contract" links here with ?sample=1: start the sample straight away.
+  useEffect(() => {
+    if (searchParams.get('sample') !== '1' || autoSampleStarted.current) return;
+    autoSampleStarted.current = true;
+    setSearchParams({}, { replace: true });
+    handleTrySample();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleReset = () => {
     setSelectedFile(null);

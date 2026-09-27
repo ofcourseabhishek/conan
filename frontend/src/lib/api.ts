@@ -21,10 +21,21 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch {
+    // fetch() only throws when no response arrived: offline, DNS, server asleep past the timeout, or the API
+    // refusing this page's origin (CORS). The browser hides which, so name both ends to make it diagnosable.
+    const api = BASE_URL || window.location.origin;
+    throw new Error(
+      `Couldn't reach the Conan API (${api}) from ${window.location.origin}. ` +
+        'The server may be waking up (try again in a minute), or it does not accept requests from this address'
+    );
+  }
 
   if (!response.ok) {
     let errorMessage = `Request failed with status ${response.status}`;

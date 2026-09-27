@@ -149,3 +149,25 @@ def test_demo_story_end_to_end():
             assert risk[d]["score"] == 57 and risk[d]["band"] == "high"  # 20 due soon + 30 blocked + 7 delivery
     finally:
         runner.set_llm_client(None)
+
+
+def test_cors_origin_regex_allows_deployment_urls():
+    """Vercel gives every deploy its own URL; ALLOWED_ORIGIN_REGEX lets those through without listing each."""
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+
+    probe = FastAPI()
+    probe.add_middleware(CORSMiddleware, allow_origins=["https://app-conan.vercel.app"],
+                         allow_origin_regex=r"https://conan-[a-z0-9]+-codedsuperhero\.vercel\.app",
+                         allow_methods=["POST"], allow_headers=["*"])
+
+    @probe.post("/x")
+    def x():
+        return {}
+
+    with TestClient(probe) as c:
+        pre = lambda o: c.options("/x", headers={"Origin": o, "Access-Control-Request-Method": "POST"}).status_code  # noqa: E731
+        assert pre("https://app-conan.vercel.app") == 200
+        assert pre("https://conan-pcc598ne1-codedsuperhero.vercel.app") == 200
+        assert pre("https://conan-pcc598ne1-codedsuperhero.vercel.app.evil.example") == 400  # full match only
+        assert pre("https://evil.example") == 400
