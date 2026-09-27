@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useParams, Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useContractAnalysis } from '../hooks/useContract';
-import { useReviewObligation, usePatchObligation } from '../hooks/useObligations';
+import { useDeleteContract, useReviewObligation, useSetObligationStatus } from '../hooks/useObligations';
 import { ContractTimeline } from '../components/ContractTimeline';
 import { ContractDependencyGraph } from '../components/ContractDependencyGraph';
 import { ObligationRiskSection } from '../components/ObligationRiskSection';
@@ -125,7 +125,9 @@ export const ContractDetailPage: React.FC = () => {
 
   // Mutation hooks
   const reviewMutation = useReviewObligation();
-  const patchMutation = usePatchObligation();
+  const statusMutation = useSetObligationStatus();
+  const deleteMutation = useDeleteContract();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const openReviewDrawer = useCallback((ob: ObligationOut) => {
     setReviewDrawerObligation(ob);
@@ -134,8 +136,8 @@ export const ContractDetailPage: React.FC = () => {
     setEditFields({});
     setReviewError(null);
     reviewMutation.reset();
-    patchMutation.reset();
-  }, [reviewMutation, patchMutation]);
+    statusMutation.reset();
+  }, [reviewMutation, statusMutation]);
 
   const closeReviewDrawer = useCallback(() => {
     setReviewDrawerObligation(null);
@@ -150,6 +152,7 @@ export const ContractDetailPage: React.FC = () => {
     setReviewError(null);
     reviewMutation.mutate(
       {
+        contractId: contractId!,
         obligationId: reviewDrawerObligation.id,
         body: { action: 'confirm', note: reviewNote || undefined },
       },
@@ -161,13 +164,14 @@ export const ContractDetailPage: React.FC = () => {
         onError: (err) => setReviewError(err.message),
       }
     );
-  }, [reviewDrawerObligation, reviewNote, reviewMutation, closeReviewDrawer, refetch, isOffline]);
+  }, [contractId, reviewDrawerObligation, reviewNote, reviewMutation, closeReviewDrawer, refetch, isOffline]);
 
   const handleReject = useCallback(() => {
     if (!reviewDrawerObligation || isOffline) return;
     setReviewError(null);
     reviewMutation.mutate(
       {
+        contractId: contractId!,
         obligationId: reviewDrawerObligation.id,
         body: { action: 'reject', note: reviewNote || undefined },
       },
@@ -179,7 +183,7 @@ export const ContractDetailPage: React.FC = () => {
         onError: (err) => setReviewError(err.message),
       }
     );
-  }, [reviewDrawerObligation, reviewNote, reviewMutation, closeReviewDrawer, refetch, isOffline]);
+  }, [contractId, reviewDrawerObligation, reviewNote, reviewMutation, closeReviewDrawer, refetch, isOffline]);
 
   const handleStartEdit = useCallback(() => {
     if (!reviewDrawerObligation || isOffline) return;
@@ -215,6 +219,7 @@ export const ContractDetailPage: React.FC = () => {
 
     reviewMutation.mutate(
       {
+        contractId: contractId!,
         obligationId: reviewDrawerObligation.id,
         body: { action: 'edit', patch, note: reviewNote || undefined },
       },
@@ -226,9 +231,36 @@ export const ContractDetailPage: React.FC = () => {
         onError: (err) => setReviewError(err.message),
       }
     );
-  }, [reviewDrawerObligation, editFields, reviewNote, reviewMutation, closeReviewDrawer, refetch, isOffline]);
+  }, [contractId, reviewDrawerObligation, editFields, reviewNote, reviewMutation, closeReviewDrawer, refetch, isOffline]);
 
-  const isMutating = reviewMutation.isPending || patchMutation.isPending;
+  // "Simulate blocked" (TRD §11): sets the status through the API so risk propagates downstream.
+  const handleSetStatus = useCallback((status: ObligationStatus) => {
+    if (!reviewDrawerObligation || isOffline) return;
+    setReviewError(null);
+    statusMutation.mutate(
+      {
+        contractId: contractId!,
+        obligationId: reviewDrawerObligation.id,
+        body: { status },
+      },
+      {
+        onSuccess: () => {
+          closeReviewDrawer();
+          refetch();
+        },
+        onError: (err) => setReviewError(err.message),
+      }
+    );
+  }, [contractId, reviewDrawerObligation, statusMutation, closeReviewDrawer, refetch, isOffline]);
+
+  const handleDelete = useCallback(() => {
+    if (!contractId || isOffline) return;
+    deleteMutation.mutate(contractId, {
+      onSuccess: () => navigate('/upload', { replace: true }),
+    });
+  }, [contractId, deleteMutation, navigate, isOffline]);
+
+  const isMutating = reviewMutation.isPending || statusMutation.isPending;
 
   const CATEGORY_OPTIONS: Category[] = ['payment', 'renewal', 'termination', 'compliance', 'delivery', 'penalty', 'confidentiality', 'other'];
   const MODALITY_OPTIONS: Modality[] = ['must', 'must_not', 'may'];
@@ -574,7 +606,7 @@ export const ContractDetailPage: React.FC = () => {
         </Link>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono font-medium text-slate-400 bg-slate-900 border border-slate-800 shadow-sm">
-            Pipeline v{contract.pipeline_version}
+            Pipeline {contract.pipeline_version}
           </span>
         </div>
       </div>
@@ -692,7 +724,40 @@ export const ContractDetailPage: React.FC = () => {
               </svg>
               <span>Upload Contract</span>
             </Link>
+            {!isOffline && (
+              confirmingDelete ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleteMutation.isPending}
+                    className="px-3 py-1.5 rounded-md bg-rose-800 hover:bg-rose-700 text-xs font-semibold text-white transition-colors disabled:opacity-50"
+                  >
+                    {deleteMutation.isPending ? 'Deleting...' : 'Delete permanently'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setConfirmingDelete(false); deleteMutation.reset(); }}
+                    disabled={deleteMutation.isPending}
+                    className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-300 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(true)}
+                  className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-rose-900/70 border border-slate-700 hover:border-rose-800 text-xs font-medium text-slate-300 hover:text-rose-100 transition-colors shrink-0"
+                >
+                  Delete
+                </button>
+              )
+            )}
           </div>
+          {deleteMutation.isError && (
+            <p role="alert" className="text-xs text-rose-300">Delete failed: {deleteMutation.error.message}</p>
+          )}
         </div>
 
         {/* Responsive Customer / Supplier Party Cards */}
@@ -2032,6 +2097,49 @@ export const ContractDetailPage: React.FC = () => {
                     >
                       ✎ Edit Fields
                     </button>
+                  </div>
+                )}
+
+                {reviewMode === 'view' && (
+                  <div className="mt-5 pt-4 border-t border-slate-800 space-y-2">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">
+                      Status: <span className="font-mono normal-case tracking-normal text-slate-300">{reviewDrawerObligation.status}</span>
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {reviewDrawerObligation.status !== 'blocked' && (
+                        <button
+                          type="button"
+                          onClick={() => handleSetStatus('blocked')}
+                          disabled={isOffline || isMutating}
+                          title={isOffline ? 'Not available in offline demo' : undefined}
+                          className="px-4 py-2 rounded-lg bg-amber-800 hover:bg-amber-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {statusMutation.isPending ? 'Updating...' : '⚠ Simulate blocked'}
+                        </button>
+                      )}
+                      {reviewDrawerObligation.status !== 'done' && (
+                        <button
+                          type="button"
+                          onClick={() => handleSetStatus('done')}
+                          disabled={isOffline || isMutating}
+                          title={isOffline ? 'Not available in offline demo' : undefined}
+                          className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-semibold text-slate-200 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Mark done
+                        </button>
+                      )}
+                      {reviewDrawerObligation.status !== 'open' && (
+                        <button
+                          type="button"
+                          onClick={() => handleSetStatus('open')}
+                          disabled={isOffline || isMutating}
+                          title={isOffline ? 'Not available in offline demo' : undefined}
+                          className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-semibold text-slate-200 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Reopen
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </section>

@@ -1,44 +1,48 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
+  deleteContract,
   getHealth,
   patchEdge,
-  patchObligation,
   reviewConflict,
   reviewObligation,
+  setObligationStatus,
   updateEvent,
 } from '../lib/api';
 import type {
   Analysis,
   ConflictReviewRequest,
-  EdgeOut,
   EdgeReviewRequest,
   EventDateRequest,
-  EventOut,
   Health,
-  ObligationOut,
-  ObligationPatch,
   ObligationReviewRequest,
+  ObligationStatusRequest,
 } from '../types/api';
-
-export function usePatchObligation() {
-  return useMutation<
-    ObligationOut,
-    Error,
-    { obligationId: string; patch: ObligationPatch }
-  >({
-    mutationFn: ({ obligationId, patch }) =>
-      patchObligation(obligationId, patch),
-  });
-}
 
 export function useReviewObligation() {
   return useMutation<
     Analysis,
     Error,
-    { obligationId: string; body: ObligationReviewRequest }
+    { contractId: string; obligationId: string; body: ObligationReviewRequest }
   >({
-    mutationFn: ({ obligationId, body }) =>
-      reviewObligation(obligationId, body),
+    mutationFn: ({ contractId, obligationId, body }) =>
+      reviewObligation(contractId, obligationId, body),
+  });
+}
+
+export function useSetObligationStatus() {
+  return useMutation<
+    Analysis,
+    Error,
+    { contractId: string; obligationId: string; body: ObligationStatusRequest }
+  >({
+    mutationFn: ({ contractId, obligationId, body }) =>
+      setObligationStatus(contractId, obligationId, body),
+  });
+}
+
+export function useDeleteContract() {
+  return useMutation<void, Error, string>({
+    mutationFn: (contractId: string) => deleteContract(contractId),
   });
 }
 
@@ -55,7 +59,7 @@ export function useReviewConflict() {
 
 export function usePatchEdge() {
   return useMutation<
-    EdgeOut,
+    Analysis,
     Error,
     { edgeId: string; body: EdgeReviewRequest }
   >({
@@ -65,7 +69,7 @@ export function usePatchEdge() {
 
 export function useUpdateEvent() {
   return useMutation<
-    EventOut,
+    Analysis,
     Error,
     { contractId: string; key: string; body: EventDateRequest }
   >({

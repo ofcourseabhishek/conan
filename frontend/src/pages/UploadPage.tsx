@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useUploadContract } from '../hooks/useContract';
+import { useCreateSampleContract, useUploadContract } from '../hooks/useContract';
+import { useHealth } from '../hooks/useObligations';
 import { useJob } from '../hooks/useJob';
 import type { UploadResponse } from '../types/api';
 
@@ -18,9 +19,12 @@ export const UploadPage: React.FC = () => {
   const [jobId, setJobId] = useState<string | null>(null);
 
   const uploadMutation = useUploadContract();
+  const sampleMutation = useCreateSampleContract();
   const { data: job, error: jobQueryError } = useJob(jobId ?? undefined);
+  // Pre-warm: the free Render instance sleeps, so wake it while the user picks a file.
+  useHealth();
 
-  const isUploading = uploadMutation.isPending;
+  const isUploading = uploadMutation.isPending || sampleMutation.isPending;
   const isJobRunning = Boolean(
     jobId &&
     job &&
@@ -119,6 +123,27 @@ export const UploadPage: React.FC = () => {
       },
       onError: (err: Error) => {
         setUploadError(err.message || 'Failed to upload contract. Please try again.');
+      },
+    });
+  };
+
+  const handleTrySample = () => {
+    if (isBusy) return;
+    setValidationError(null);
+    setUploadError(null);
+    sampleMutation.mutate(undefined, {
+      onSuccess: (data: UploadResponse) => {
+        setContractId(data.contract_id);
+        if (data.job_id) {
+          setJobId(data.job_id);
+        } else {
+          navigate(`/contracts/${data.contract_id}`);
+        }
+      },
+      onError: (err: Error) => {
+        setUploadError(
+          `${err.message || 'Could not load the sample contract.'} The offline demo below still works without the server.`
+        );
       },
     });
   };
@@ -279,8 +304,12 @@ export const UploadPage: React.FC = () => {
       {isUploading && (
         <div className="mb-8 p-6 rounded-xl border border-slate-700 bg-slate-900/80 text-center space-y-2">
           <div className="inline-block w-6 h-6 border-2 border-slate-400 border-t-white rounded-full animate-spin" />
-          <p className="text-sm font-medium text-white">Uploading contract...</p>
-          <p className="text-xs text-slate-400">Streaming document to server</p>
+          <p className="text-sm font-medium text-white">
+            {sampleMutation.isPending ? 'Loading sample contract...' : 'Uploading contract...'}
+          </p>
+          <p className="text-xs text-slate-400">
+            {sampleMutation.isPending ? 'The first request can take up to a minute while the server wakes' : 'Streaming document to server'}
+          </p>
         </div>
       )}
 
@@ -372,13 +401,27 @@ export const UploadPage: React.FC = () => {
           Want to test the workflow without uploading your own document?
         </span>
 
-        <Link
-          to="/contracts/demo?offline=1"
-          className="px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-medium text-slate-300 hover:text-white transition-colors text-center whitespace-nowrap"
-        >
-          Try Sample Contract
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleTrySample}
+            disabled={isBusy}
+            className="px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-medium text-slate-300 hover:text-white transition-colors text-center whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Try Sample Contract
+          </button>
+          <Link
+            to="/contracts/demo?offline=1"
+            className="px-3 py-2 text-xs font-medium text-slate-500 hover:text-slate-300 transition-colors whitespace-nowrap"
+          >
+            Offline demo
+          </Link>
+        </div>
       </div>
+
+      <p className="mt-6 text-[11px] text-slate-500 text-center">
+        Conan is an operations aid, not legal advice. Use only fictional or public contracts: free-tier AI inputs may be used by the provider.
+      </p>
     </div>
   );
 };
