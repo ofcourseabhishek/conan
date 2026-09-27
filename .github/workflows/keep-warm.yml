@@ -1,0 +1,23 @@
+# Keeps the Render free instance awake for the demo: it spins down after 15 idle minutes and a cold start
+# takes ~1 minute. GitHub runs scheduled workflows late at busy times, hence every 5 minutes.
+# Turn off after the demo: gh workflow disable keep-warm.yml
+name: keep-warm
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /api/health
+        run: |
+          for i in 1 2 3; do
+            body=$(curl -sS --max-time 90 https://conan-api.onrender.com/api/health) && echo "$body" && \
+              echo "$body" | grep -q '"ok":true' && exit 0
+            echo "attempt $i failed; retrying in 20s"; sleep 20
+          done
+          exit 1
