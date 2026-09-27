@@ -31,6 +31,7 @@ app = FastAPI(title="Conan API", version=settings.pipeline_version, lifespan=lif
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins,
+    allow_origin_regex=settings.allowed_origin_regex or None,
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
     allow_headers=["*"],
 )

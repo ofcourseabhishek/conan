@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     reminders_per_ip_hour: int = 3
     reminders_per_day: int = 20  # global cap: protects the free-tier quota
     allowed_origins: str = "http://localhost:5173"
+    # Optional: also allow origins matching this regex (full match), e.g. this project's Vercel deployment URLs
+    # https://conan-[a-z0-9]+-codedsuperhero\.vercel\.app, which change on every deploy.
+    allowed_origin_regex: str | None = None
     demo_passcode: str | None = None
 
     # Upload caps (TRD §5.1)

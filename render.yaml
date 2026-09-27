@@ -29,6 +29,8 @@ services:
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false
+      - key: ALLOWED_ORIGIN_REGEX  # optional, e.g. per-deployment Vercel URLs
+        sync: false
       - key: ENABLE_REMINDERS  # set in the dashboard; unset means off (a fixed value here would reset it on sync)
         sync: false
       - key: RESEND_API_KEY
