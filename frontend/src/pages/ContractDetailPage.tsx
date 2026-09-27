@@ -659,6 +659,14 @@ export const ContractDetailPage: React.FC = () => {
                       Sample Contract
                     </span>
                   )}
+                  {contract.cached_at && (
+                    <span
+                      title={`Served from a stored analysis made ${new Date(contract.cached_at).toLocaleString()}; no AI call on this view`}
+                      className="px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-slate-800 text-slate-300 border border-slate-600 shadow-sm"
+                    >
+                      Cached analysis
+                    </span>
+                  )}
                   {isOffline && (
                     <span className="px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-amber-950/80 text-amber-300 border border-amber-700/80 shadow-sm">
                       Offline Demo
